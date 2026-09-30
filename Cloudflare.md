@@ -54,13 +54,23 @@ numbered file (e.g. `migrations/0003_more_artists.sql`) and re-run.
 
 ```bash
 npm run deploy
-# equivalent to: npx astro build && npx wrangler deploy
+# e9core build-plugins && astro build && wrangler deploy
 ```
 
-Wrangler uploads the Worker (entry point `@astrojs/cloudflare/entrypoints/server`,
-declared in `wrangler.jsonc`) plus the static assets in `dist/`, and binds the
-D1 database as `env.DB`. The command prints your `*.workers.dev` URL — the
-site is live there immediately.
+`e9core build-plugins` writes `engine9.plugins.js` from the installed
+`@engine9/interfaces` (every plugin in `engine9.pluginPackages`). Astro
+aliases `@engine9/core/plugins/site` to that file, so the Worker bundle
+contains the interfaces. Wrangler uploads that Worker (entry point
+`@astrojs/cloudflare/entrypoints/server`) plus the static assets in
+`dist/`, and binds the D1 database as `env.DB`.
+
+A new interfaces version is an upgrade of that package, then the same
+deploy. Leave `@engine9/core` on its current version:
+
+```bash
+npm install @engine9/interfaces@latest
+npm run deploy
+```
 
 ## 4. (Optional) Custom domain
 
@@ -94,7 +104,8 @@ The sibling `delegate` service uses this exact pattern for
 Authentication is already wired through the shared **delegate** service
 (`delegate.engine9.ai`). The preferred path is an Identity Token (JWT)
 from `GET /identity/authorize`, verified via JWKS in
-`@engine9/core/auth/delegate`.
+`@engine9/core/auth/delegate`. Login requests required fields
+`display_name` and `email`, and no optional fields.
 
 Set `SESSION_SECRET` with `wrangler secret put SESSION_SECRET`. After first login this
 demo still shows `/choose-role` (VIP needs Level 1, Admin Level 3); that

@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import PersonWorker from "@engine9/core/PersonWorker";
-import plugins from "@engine9/core/plugins/site";
+import pluginEntries, { packageVersions } from "@engine9/core/plugins/site";
+import { createPluginRegistry } from "@engine9/core/pluginRegistry";
 import { SqlApiKeyStore } from "@engine9/core/auth";
 import { createDelegateAuth } from "@engine9/core/auth/delegate";
 import { BatchLogger } from "@engine9/core/logging";
@@ -31,9 +32,18 @@ import {
  */
 
 /**
+ * Plugins compiled into this build. `e9core build-plugins` writes
+ * `engine9.plugins.js` from `@engine9/interfaces` (package.json
+ * `engine9.pluginPackages`). Vite and wrangler alias
+ * `@engine9/core/plugins/site` to that file. The stub export is null.
+ */
+const plugins = pluginEntries
+  ? createPluginRegistry(pluginEntries, { packageVersions: packageVersions || {} })
+  : null;
+
+/**
  * The PersonWorker runs the inbound person pipeline against D1.
- * `plugins` is the registry compiled into this build (`@engine9/core/plugins/site`,
- * every `@engine9/interfaces` plugin). Core loads plugin code from that registry.
+ * Core loads plugin code from `plugins`.
  */
 export function createPersonWorker() {
   return new PersonWorker({ accountId: "festival-demo", d1: env.DB, plugins });
@@ -79,6 +89,24 @@ export function delegateAuth() {
     roles: ROLE_REGISTRY,
     // Demo session roles: every login starts empty so /choose-role re-prompts.
     loadRolesOnLogin: false,
+  });
+}
+
+/** Share fields every festival login requires. There are no optional fields. */
+export const LOGIN_FIELDS = ["display_name", "email"];
+
+/**
+ * Delegate authorize URL for this site's login. Lands on `/auth/delegate`.
+ * `prompt: "select"` is "Change your Delegate information": delegate always
+ * shows its share page, so the person can pick another email address.
+ */
+export function loginIdentityUrl(origin: string, opts: { prompt?: "select" } = {}) {
+  return delegateAuth().identityUrl({
+    returnTo: new URL("/auth/delegate", origin).toString(),
+    minLevel: 1,
+    fields: LOGIN_FIELDS,
+    prompt: opts.prompt,
+    responseMode: "query",
   });
 }
 

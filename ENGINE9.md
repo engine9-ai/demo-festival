@@ -42,17 +42,35 @@ npm install @engine9/core @engine9/id @engine9/interfaces
 `@engine9/input-tools` is core's dependency (2.5.1). There is no `overrides`
 block. Core 1.4.3 peers interfaces `^1.8.1`.
 
-Bundler wiring for Cloudflare lives in `astro.config.mjs`:
+`package.json` `engine9.pluginPackages` is `["@engine9/interfaces"]`.
+That is the default when the key is omitted. Cloudflare has no filesystem,
+so those plugins are compiled in at build time.
 
-- alias `@engine9/input-tools` (exact match) to
-  `@engine9/core/cloudflare/input-tools-shim` so the interface transforms
-  don't drag in server-only dependencies;
-- alias `knex`, `mysql2/promise`, and `better-sqlite3` to
-  `@engine9/core/cloudflare/unavailable-module` — they back SQLWorker's
-  non-D1 connection modes and are never loaded on Workers.
+`npm run build` runs `e9core build-plugins`, which writes gitignored
+`engine9.plugins.js` (one literal import per plugin). Astro bundles that
+file: `astro.config.mjs` aliases `@engine9/core/plugins/site` to it.
+`wrangler.jsonc` has the same alias, and its `build.command` runs
+`e9core build-plugins` again on `wrangler deploy`. The package stub at
+`@engine9/core/plugins/site` exports null; without the alias, login fails
+because no plugin registry is configured.
 
-`wrangler.jsonc` already had `nodejs_compat` and the `DB` D1 binding; nothing
-else was needed.
+The same Vite and wrangler alias lists also point `@engine9/input-tools`
+at `@engine9/core/cloudflare/input-tools-shim`, and `knex`, `mysql2`,
+`mysql2/promise`, and `better-sqlite3` at
+`@engine9/core/cloudflare/unavailable-module`. `i18n-iso-countries`
+resolves to its browser build (`index.js`).
+
+To ship a new interfaces release, upgrade that package only and redeploy.
+Leave the `@engine9/core` version as it is:
+
+```bash
+npm install @engine9/interfaces@latest
+npm run deploy
+```
+
+`npm run deploy` is `e9core build-plugins`, then `astro build`, then
+`wrangler deploy`. The new interfaces are in the Worker because
+`build-plugins` reads the copy this project installed.
 
 ### Stage 2 — Install the engine9 schema into the existing database
 
@@ -115,7 +133,7 @@ Also in `0003_engine9.sql`:
 Two small files:
 
 - `src/lib/engine9.ts` — builds the client: `PersonWorker` on the `DB` D1
-  binding with the compiled plugin registry (`@engine9/core/plugins/site`),
+  binding with `createPluginRegistry` over `@engine9/core/plugins/site`,
   `SqlApiKeyStore` (swap for `KVApiKeyStore` + a KV namespace without
   touching endpoints), `BatchLogger`, and `createApi` with this site's plugin
   id, upsertable tables, and named reads (`vip-performances` gated by the VIP
@@ -154,7 +172,7 @@ curl "localhost:8787/api/read/vip-performances?person_id=901" -H "Authorization:
 
 ```bash
 npm run db:migrate:remote   # apply migrations to the production D1 database
-npm run deploy              # astro build && wrangler deploy
+npm run deploy              # e9core build-plugins && astro build && wrangler deploy
 ```
 
 For production, also rotate the API key (Stage 4) and, if long-term
@@ -188,8 +206,12 @@ page also uses `@engine9/id` for a popup (`requestIdentity`) that lands on
 the same `/auth/delegate` callback. Registration uses the seeded
 `e9publickey_` (scope `public`) on `POST /people`.
 
-`auth.identityUrl({ returnTo, minLevel, responseMode: "query" })` builds
-the authorize URL.
+`auth.identityUrl({ returnTo, minLevel, fields: ["display_name", "email"], responseMode: "query" })`
+builds the authorize URL. Those two fields are required. The login sends
+no optional fields. `GET /auth/change` sends the same request with
+`prompt: "select"` ("Change your Delegate information"), so a signed-in
+person can pick another email address. See
+[`docs/identity-flow.md`](docs/identity-flow.md).
 
 ## What stays on the engine9 server
 

@@ -6,11 +6,11 @@
   "private": true,
   "license": "MIT",
   "scripts": {
-    "dev": "npm run db:migrate && node --env-file-if-exists=.env ./node_modules/astro/bin/astro.mjs dev",
-    "build": "astro build",
-    "preview": "astro build && wrangler dev",
+    "dev": "npm run db:migrate && npx e9core build-plugins && node --env-file-if-exists=.env ./node_modules/astro/bin/astro.mjs dev",
+    "build": "npx e9core build-plugins && astro build",
+    "preview": "npm run build && wrangler dev",
     "logs": "wrangler tail",
-    "deploy": "astro build && wrangler deploy",
+    "deploy": "npm run build && wrangler deploy",
     "db:migrate": "wrangler d1 migrations apply festival-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply festival-db --remote",
     "db:reset": "rm -rf .wrangler/state && npm run db:migrate",
@@ -25,6 +25,9 @@
     "@engine9/interfaces": "^1.8.1",
     "astro": "^7.0.6",
     "wrangler": "^4.107.0"
+  },
+  "engine9": {
+    "pluginPackages": ["@engine9/interfaces"]
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.9",

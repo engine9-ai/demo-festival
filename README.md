@@ -54,8 +54,9 @@ This site only wires config and HTTP endpoints:
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /login` | Identity Token (`/identity/authorize`) |
+| `GET /login` | Identity Token (`/identity/authorize`). Required fields `display_name`, `email`; no optional fields |
 | `GET /auth/delegate` | Callback: Identity Token (`?delegate_token=`) |
+| `GET /auth/change` | "Change your Delegate information": the login request with `prompt=select`, so the person can pick another email address |
 | `POST /auth/role` | Demo-only: grants VIP or Admin after first login |
 | `GET /choose-role` | First-time users pick VIP or Admin |
 | `POST /auth/logout` (or site logout) | Clears the local session cookie |

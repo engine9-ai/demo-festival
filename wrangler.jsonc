@@ -6,6 +6,20 @@
   "main": "@astrojs/cloudflare/entrypoints/server",
   "compatibility_date": "2026-06-01",
   "compatibility_flags": ["nodejs_compat"],
+  // Regenerates engine9.plugins.js before wrangler bundles. `npm run build`
+  // runs the same command first, because Astro/Vite must see the file.
+  "build": {
+    "command": "npx e9core build-plugins",
+  },
+  "alias": {
+    "@engine9/core/plugins/site": "./engine9.plugins.js",
+    "@engine9/input-tools": "@engine9/core/cloudflare/input-tools-shim",
+    "knex": "@engine9/core/cloudflare/unavailable-module",
+    "mysql2": "@engine9/core/cloudflare/unavailable-module",
+    "mysql2/promise": "@engine9/core/cloudflare/unavailable-module",
+    "better-sqlite3": "@engine9/core/cloudflare/unavailable-module",
+    "i18n-iso-countries": "i18n-iso-countries/index.js",
+  },
   "observability": {
     "enabled": true,
   },

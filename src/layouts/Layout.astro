@@ -51,6 +51,9 @@ const navLinks = [
                   ? `via delegate · Level ${session.level}`
                   : "via delegate"}
             >{primaryRole(session).toUpperCase()}{session.level != null ? ` · L${session.level}` : ""}</span>
+            <a class="btn btn-ghost" href="/auth/change" title="Change your Delegate information: pick another email address">
+              Change Delegate info
+            </a>
             <form method="post" action="/auth/logout">
               <button class="btn btn-ghost" type="submit">Log out</button>
             </form>

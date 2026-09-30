@@ -1,6 +1,8 @@
 # build output
 dist/
 .astro/
+# Compiled plugin registry. `e9core build-plugins` rewrites this on every build.
+engine9.plugins.js
 
 # dependencies
 node_modules/

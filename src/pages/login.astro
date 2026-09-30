@@ -2,7 +2,7 @@
 import { env } from "cloudflare:workers";
 import Layout from "../layouts/Layout.astro";
 import { domainFromUrl } from "@engine9/core/auth/delegate";
-import { delegateAuth } from "../lib/engine9";
+import { LOGIN_FIELDS, loginIdentityUrl } from "../lib/engine9";
 import { primaryRole } from "../lib/session";
 
 const required = Astro.url.searchParams.get("required");
@@ -13,21 +13,18 @@ const errorDetail = Astro.url.searchParams.get("detail");
 const session = Astro.locals.session;
 
 const returnTo = new URL("/auth/delegate", Astro.url.origin).toString();
-const auth = delegateAuth();
 const delegateBase = env.DELEGATE_URL || "https://delegate.engine9.ai";
 
-/** Identity Token (JWT) via /identity/authorize, query mode for this SSR callback. */
-const identityUrl = auth.identityUrl({
-  returnTo,
-  minLevel: 1,
-  responseMode: "query",
-});
-const identityConsentUrl = auth.identityUrl({
-  returnTo,
-  minLevel: 1,
-  prompt: "consent",
-  responseMode: "query",
-});
+/** Log in: /identity/authorize, query mode for this SSR callback. */
+const loginUrl = loginIdentityUrl(Astro.url.origin);
+/** "Change your Delegate information": the same request with prompt=select. */
+const changeUrl = "/auth/change";
+/** Delegate's page for the person's email addresses and connected sites. */
+const delegateUserUrl = new URL("/user", delegateBase).toString();
+
+/** A failed login that came from the person's identity, not this site's configuration. */
+const showChangeOnError = Boolean(errorReason || errorMessage) && errorKind !== "configuration";
+
 const identityBridgeUrl = new URL("/identity/bridge", delegateBase);
 identityBridgeUrl.searchParams.set("domain", domainFromUrl(Astro.url.origin));
 identityBridgeUrl.searchParams.set("return_to", returnTo);
@@ -47,10 +44,18 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
   <div class="login-wrap" data-delegate-url={delegateBase}>
     <h1>Log in</h1>
     <p class="lede">
-      This page demonstrates how a core site can use the shared
-      <strong>delegate</strong> service. Try each option to see the different
-      browser steps and what this demo does after sign-in succeeds.
+      This site uses the shared <strong>delegate</strong> service to log in.
+      Option 1 is how a real site logs people in. Options 2 and 3 are
+      debugging tools that show what delegate knows about this browser.
     </p>
+
+    {session && (
+      <p class="notice">
+        You're logged in as <strong>{primaryRole(session).toUpperCase()}</strong>.
+        Wrong email address or name?
+        <a href={changeUrl}>Change your Delegate information</a>.
+      </p>
+    )}
 
     {required && (
       <p class="notice">
@@ -77,34 +82,61 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
             )}
           </span>
         )}
+        {showChangeOnError && (
+          <span class="change-hint">
+            Signed in with the wrong account or address?
+            <a href={changeUrl}>Change your Delegate information</a>.
+          </span>
+        )}
       </p>
     )}
 
       <div class="options">
         <article class="card option">
-          <h2>1. Identity Token (preferred)</h2>
-          <p class="tag">JWT · no shared secret</p>
+          <h2>1. Log in with Delegate</h2>
+          <p class="tag">Identity Token · JWT · no shared secret</p>
           <p>
-            Starts <code>/identity/authorize</code> with <code>min_level=1</code>
-            and <code>response_mode=query</code>. Delegate issues a signed
-            Identity Token; this Site verifies it via JWKS.
+            <strong>Log in</strong> and <strong>Log in (popup)</strong> send the
+            same request: <code>/identity/authorize</code> with
+            <code>min_level=1</code> and required fields
+            <code>display_name</code> and <code>email</code>. The first takes
+            this page to delegate and back. The second opens delegate in a
+            popup with <code>@engine9/id</code>. Either way delegate signs an
+            Identity Token and this site verifies it via JWKS.
           </p>
           <p class="outcome">
-            <strong>You’ll see:</strong> a Profile chooser (or silent continue),
-            then this demo’s role picker. VIP requires Level 1; Admin requires
+            <strong>You’ll see:</strong> delegate’s sign-in if you are not
+            signed in there, then its share page the first time. The share
+            page lists your email addresses so you can pick one. After that,
+            delegate remembers your choice (a Grant) and logs you straight in.
+            Then this demo’s role picker. VIP requires Level 1; Admin requires
             Level 3.
           </p>
+          <p>
+            <strong>Change your Delegate information</strong> sends the same
+            request with <code>prompt=select</code>. Delegate always shows the
+            share page, even when you already have a Grant. Use it to pick a
+            different email address, add one, or switch Google accounts.
+            It replaces the old “Share page” button, which did the same thing.
+          </p>
           <div class="btn-row">
-            <a class="btn btn-primary" href={identityUrl}>Request identity</a>
-            <a class="btn btn-ghost option-ghost" href={identityConsentUrl}>Chooser / consent</a>
-            <button class="btn btn-ghost option-ghost" type="button" id="identity-id-popup">
-              Popup via @engine9/id
+            <a class="btn btn-primary" href={loginUrl}>Log in</a>
+            <button
+              class="btn btn-ghost option-ghost"
+              type="button"
+              id="identity-id-popup"
+              data-fields={LOGIN_FIELDS.join(",")}
+            >
+              Log in (popup)
             </button>
+            <a class="btn btn-ghost option-ghost" href={changeUrl}>
+              Change your Delegate information
+            </a>
           </div>
         </article>
 
         <article class="card option">
-          <h2>2. Who am I (no login)</h2>
+          <h2>2. Who am I (debug, no login)</h2>
           <p class="tag">Pre-login identity</p>
           <p>
             Asks Delegate who this browser already is — <code>unid</code> and
@@ -125,7 +157,7 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
             <button
               class="btn btn-ghost option-ghost"
               type="button"
-              id="profile-fetch"
+              id="whoami-fetch"
               data-url={whoamiUrl}
             >
               Try credentialed fetch
@@ -133,7 +165,7 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
             <button
               class="btn btn-primary"
               type="button"
-              id="profile-probe"
+              id="whoami-probe"
               data-url={whoamiBridgeUrl.toString()}
             >
               Look up via popup bridge
@@ -144,72 +176,81 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
               id="identity-probe"
               data-url={identityBridgeUrl.toString()}
             >
-              Identity bridge (Level 0)
+              Anonymous token (Level 0)
             </button>
           </div>
-          <pre id="profile-result" class="profile-result" hidden></pre>
+          <pre id="identity-result" class="identity-result" hidden></pre>
         </article>
 
         <article class="card option">
-          <h2>3. Direct Delegate login</h2>
-          <p class="tag">Debug Delegate only</p>
+          <h2>3. Delegate’s own pages (debug)</h2>
+          <p class="tag">Delegate only · no festival session</p>
           <p>
-            Opens Delegate’s own <code>/login</code> with no
-            <code>return_to</code> back to this site. Signs you into
-            Delegate (UNID ↔ Google) but does <em>not</em> create a festival
-            session cookie.
+            <strong>Sign in to Delegate only</strong> opens Delegate’s own
+            <code>/login</code> with no <code>return_to</code> back to this
+            site. It signs you in to Delegate (UNID ↔ Google) but does
+            <em>not</em> log you in here.
+            <strong>Your Delegate details</strong> opens Delegate’s
+            <code>/user</code>: your email addresses and the sites you share
+            with.
           </p>
           <p class="outcome">
-            <strong>You’ll see:</strong> Delegate’s login UI and JSON success
-            after Google. This demo’s header stays logged out until you use
-            option 1 or 2. Option 2’s popup bridge will then report
-            <code>loggedIn: true</code>.
+            <strong>You’ll see:</strong> Delegate’s pages in a new tab. This
+            demo’s header stays logged out until you use option 1. Option 2’s
+            popup bridge will then report <code>loggedIn: true</code>.
           </p>
-          <a class="btn btn-ghost option-ghost" href={directDelegateLoginUrl} target="_blank" rel="noreferrer">
-            Open Delegate /login
-          </a>
+          <div class="btn-row">
+            <a class="btn btn-ghost option-ghost" href={directDelegateLoginUrl} target="_blank" rel="noreferrer">
+              Sign in to Delegate only
+            </a>
+            <a class="btn btn-ghost option-ghost" href={delegateUserUrl} target="_blank" rel="noreferrer">
+              Your Delegate details
+            </a>
+          </div>
         </article>
       </div>
 
     {session && (
       <p class="muted session-note">
         You're currently logged in as <strong>{primaryRole(session).toUpperCase()}</strong>
-        (person_id {session.personId}). Signing in again re-verifies with Delegate;
+        (person_id {session.personId}). Logging in again re-verifies with Delegate;
         this demo clears roles each login so you get the role picker again.
+        <a href={changeUrl}>Change your Delegate information</a> does the same
+        and lets you pick another email address first.
       </p>
     )}
   </div>
 </Layout>
 
 <script define:vars={{ delegateBase }}>
-  const profileResult = document.getElementById("profile-result");
+  const identityResult = document.getElementById("identity-result");
 
-  function showProfile(label, data) {
-    if (!profileResult) return;
-    profileResult.hidden = false;
-    profileResult.textContent =
+  function showIdentity(label, data) {
+    if (!identityResult) return;
+    identityResult.hidden = false;
+    identityResult.textContent =
       typeof label === "string"
         ? label + "\n" + JSON.stringify(data, null, 2)
         : JSON.stringify(data, null, 2);
   }
 
-  document.getElementById("profile-fetch")?.addEventListener("click", async (e) => {
+  document.getElementById("whoami-fetch")?.addEventListener("click", async (e) => {
     const btn = e.currentTarget;
     const url = btn instanceof HTMLElement ? btn.dataset.url : null;
     if (!url) return;
     try {
       const res = await fetch(url, { credentials: "include" });
       const data = await res.json();
-      showProfile(
+      showIdentity(
         "// credentialed fetch (SameSite=Lax → cookies usually NOT sent cross-site)",
         data,
       );
     } catch (err) {
-      showProfile("// fetch failed", { error: String(err) });
+      showIdentity("// fetch failed", { error: String(err) });
     }
   });
 
-  document.getElementById("profile-probe")?.addEventListener("click", (e) => {
+  document.getElementById("whoami-probe")?.addEventListener("click", (e) => {
     const btn = e.currentTarget;
     const url = btn instanceof HTMLElement ? btn.dataset.url : null;
     if (!url) return;
@@ -223,12 +264,12 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
     if (event.origin !== new URL(delegateBase).origin) return;
     if (event.data?.type === "delegate-identity") {
       const { type: _t, ...payload } = event.data;
-      showProfile("// identity bridge (JWT or error)", payload);
+      showIdentity("// identity bridge (JWT or error)", payload);
       return;
     }
     if (!event.data || event.data.type !== "delegate-whoami") return;
     const { type: _type, ...identity } = event.data;
-    showProfile("// popup bridge (top-level → cookies sent)", identity);
+    showIdentity("// popup bridge (top-level → cookies sent)", identity);
   });
 
 </script>
@@ -242,17 +283,24 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
       ? wrap.dataset.delegateUrl || "https://delegate.engine9.ai"
       : "https://delegate.engine9.ai";
   const id = createEngine9Id({ delegateUrl, storage: "session" });
-  const profileResult = document.getElementById("profile-result");
+  const identityResult = document.getElementById("identity-result");
 
   function show(label: string, data: unknown) {
-    if (!profileResult) return;
-    profileResult.hidden = false;
-    profileResult.textContent = `${label}\n${JSON.stringify(data, null, 2)}`;
+    if (!identityResult) return;
+    identityResult.hidden = false;
+    identityResult.textContent = `${label}\n${JSON.stringify(data, null, 2)}`;
   }
 
-  document.getElementById("identity-id-popup")?.addEventListener("click", async () => {
+  document.getElementById("identity-id-popup")?.addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    const raw = btn instanceof HTMLElement ? btn.dataset.fields || "" : "";
+    const fields = raw.split(",").map((name) => name.trim()).filter(Boolean);
     try {
-      const identity = await id.requestIdentity({ minLevel: 1, mode: "popup" });
+      const identity = await id.requestIdentity({
+        minLevel: 1,
+        mode: "popup",
+        fields,
+      });
       if (!identity) return;
       const token = sessionStorage.getItem("delegate_token");
       if (token) {
@@ -308,7 +356,7 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
   }
   .btn-row .btn { margin-top: 0; }
   .option-ghost { border-color: var(--border); }
-  .profile-result {
+  .identity-result {
     margin: 0.9rem 0 0;
     padding: 0.75rem 0.9rem;
     background: var(--surface-2);
@@ -341,5 +389,6 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
     color: var(--muted, #94a3b8);
   }
   .session-note { margin-top: 1.5rem; }
+  .change-hint { display: block; margin-top: 0.5rem; }
   code { background: var(--surface-2); padding: 0.1rem 0.35rem; border-radius: 4px; }
 </style>

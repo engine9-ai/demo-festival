@@ -11,12 +11,48 @@ and `@engine9/id`. Protocol: [`id/docs/protocol.md`](../../id/docs/protocol.md).
 — those are soft UI only until you map them to `person_segment`.
 
 - **VIP** — segment `5f2ab45c-0a39-4939-a2af-c1fcc58f37ff`, scopes
-  `data:read`, `requiredAuth.minLevel = 1` (self-asserted profile enough
-  for lounge personalization).
+  `data:read`, `requiredAuth.minLevel = 1` (shared Level 1 fields are
+  enough for lounge personalization).
 - **Admin** — segment `4f4ac886-f53d-48e1-b4bd-5a98eb48cc6f`, scopes
   `admin`, `requiredAuth.minLevel = 3` (trusted provider).
 
 `loadRolesOnLogin: false` so every login hits `/choose-role`.
+
+## Requested fields
+
+Login asks delegate for required fields `display_name` and `email`
+(`fields` on `/identity/authorize` and on the `@engine9/id` popup).
+There are no `optional_fields`.
+
+When a request omits both lists, delegate requires that same pair.
+Required fields are locked on the share page. Optional fields, when a
+site sends them, are checkboxes. A Grant that already shares every
+required field with a value, at `min_level`, issues the token with no
+page. Staying anonymous, or declining a required field, keeps
+Level 0 (`level_unavailable` when `min_level` is above 0).
+
+## Log in vs. Change your Delegate information
+
+On `/login`, **Log in** and **Log in (popup)** are the same request. One
+takes the page to delegate and back; the other uses an `@engine9/id` popup.
+Both go straight through when the Grant already covers the request.
+
+**Change your Delegate information** (`GET /auth/change`, also in the header
+when logged in) sends the same request with `prompt=select`. Delegate always
+shows the share page, with the person's email addresses to pick from, a link
+to add one, and a link to use a different Google account. The new token
+replaces this site's session. Picking another address keeps the same Domain
+UNID (`sub`), so the site sees the same person. Switching Google accounts
+signs in as a different delegate User, so the site sees a different `sub`.
+
+Show it wherever a signed-in person could be stuck with the wrong address:
+the header, the login page, and login errors. Signing in again does not help
+them, because delegate goes straight through with the remembered Grant.
+
+Shareable delegate fields are `display_name`, `given_name`,
+`family_name`, `email`, `phone`, and `attributes`. `email_type` is a
+site people field. The register form sends it only on
+`POST /api/people`.
 
 ## People fields
 
@@ -31,8 +67,8 @@ sequenceDiagram
   participant B as Browser
   participant D as delegate
   participant S as Demo Worker
-  B->>D: GET /identity/authorize?site&min_level=1
-  D-->>B: chooser or silent
+  B->>D: GET /identity/authorize?domain&min_level=1&fields=display_name,email
+  D-->>B: share page, or silent token
   D-->>B: 302 return_to?delegate_token=JWT
   B->>S: GET /auth/delegate?delegate_token
   S->>D: GET /.well-known/jwks.json
@@ -44,8 +80,9 @@ sequenceDiagram
 
 ## Client vs server
 
-- `@engine9/id` on `/login`: Identity Token popup (`requestIdentity`),
-  Level 0 probe, then `GET /auth/delegate?delegate_token=`.
+- `@engine9/id` on `/login`: Identity Token popup (`requestIdentity`
+  with required `display_name` and `email`), Level 0 probe (no fields),
+  then `GET /auth/delegate?delegate_token=`.
 - Server: JWT verify, person pipeline, HttpOnly `session` cookie,
   middleware for `/vip` and `/admin` (also checks `requiredAuth.minLevel`).
 - Level 1 register: `/auth/register` → `POST /api/people` with
@@ -54,3 +91,20 @@ sequenceDiagram
   server-only for admin-style API calls.
 
 Browser-only on-ramp (no core): [`demo-id`](../../demo-id).
+
+## When sign-in fails after Delegate
+
+Delegate has already sent the Identity Token. The failure is this site
+finishing login: install interfaces, resolve the person, mint the session.
+The login page shows the reason code and the database or plugin detail.
+Signing in again does not fix a configuration failure.
+
+| Reason | What is happening |
+| --- | --- |
+| `plugin_registry_missing` | The Worker was deployed without `@engine9/interfaces` compiled in. `e9core build-plugins` must run, and `@engine9/core/plugins/site` must alias `engine9.plugins.js`. |
+| `schema_update_failed` | Installing interfaces tried to add a column with `DEFAULT CURRENT_TIMESTAMP`. D1 rejects that `ALTER TABLE`. The table has to be rebuilt. |
+| `database_error` | D1 rejected some other statement. The detail is the SQL error. |
+| `missing_session_secret` | `SESSION_SECRET` is not set on the Worker. |
+| `invalid_identity_token` | The token did not verify. Sign in again. |
+
+The same table is in [`core` deploy docs](../../core/docs/deploy.md#when-sign-in-fails-after-delegate).
