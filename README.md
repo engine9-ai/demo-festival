@@ -23,18 +23,9 @@ npm install
 npm run dev
 ```
 
-### Developing against a local `@engine9/core` checkout
-
-`package.json` depends on sibling checkouts:
-
-```json
-"@engine9/core": "file:../core",
-"@engine9/id": "file:../id"
-```
-
-Build `@engine9/id` (`cd ../id && npm run build`) before `npm install` here
-if `dist/` is missing. These checkouts are release 1.3.0. After the packages
-are published, switch those entries to `"^1.3.0"`.
+Dependencies are the published npm releases: `@engine9/core` ^1.4.3,
+`@engine9/id` ^1.4.1, and `@engine9/interfaces` ^1.8.1. `@engine9/input-tools`
+comes in with core (2.5.1).
 
 Open **http://localhost:3000** (or **http://localhost:3001** /
 **http://localhost:3002** if 3000 is taken). Set `PORT` in `.env` to pin a

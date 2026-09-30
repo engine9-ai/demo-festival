@@ -28,18 +28,19 @@ the same sequence to install the client on any existing site.
 ### Stage 1 — Add the client library
 
 ```bash
-npm install @engine9/core
+npm install @engine9/core @engine9/id @engine9/interfaces
 ```
 
-`package.json` depends on the sibling checkouts at 1.3.0:
+`package.json` depends on the published releases:
 
 ```json
-"@engine9/core": "file:../core",
-"@engine9/id": "file:../id"
+"@engine9/core": "^1.4.3",
+"@engine9/id": "^1.4.1",
+"@engine9/interfaces": "^1.8.1"
 ```
 
-After the packages are published, switch those entries to `"^1.3.0"`.
-`overrides` pin transitive `@engine9/input-tools` and `@engine9/interfaces`.
+`@engine9/input-tools` is core's dependency (2.5.1). There is no `overrides`
+block. Core 1.4.3 peers interfaces `^1.8.1`.
 
 Bundler wiring for Cloudflare lives in `astro.config.mjs`:
 
