@@ -36,11 +36,11 @@ identityBridgeUrl.searchParams.set("min_level", "0");
 /** Inspect Delegate itself (no Site session). */
 const directDelegateLoginUrl = new URL("/login", delegateBase).toString();
 
-const profileUrl = new URL("/profile", delegateBase).toString();
+const whoamiUrl = new URL("/whoami", delegateBase).toString();
 
-/** Pre-login profile probe (top-level popup → postMessage). */
-const profileBridgeUrl = new URL("/profile/bridge", delegateBase);
-profileBridgeUrl.searchParams.set("origin", Astro.url.origin);
+/** Pre-login identity probe (top-level popup → postMessage). */
+const whoamiBridgeUrl = new URL("/whoami/bridge", delegateBase);
+whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
 ---
 
 <Layout title="Log in">
@@ -104,21 +104,21 @@ profileBridgeUrl.searchParams.set("origin", Astro.url.origin);
         </article>
 
         <article class="card option">
-          <h2>2. Profile probe (no login)</h2>
+          <h2>2. Who am I (no login)</h2>
           <p class="tag">Pre-login identity</p>
           <p>
             Asks Delegate who this browser already is — <code>unid</code> and
             whether they are logged in on Delegate — <em>without</em> creating a
-            festival session (<code>GET /profile</code>).
+            festival session (<code>GET /whoami</code>).
           </p>
           <p class="outcome">
             <strong>Cross-site limit:</strong> Delegate cookies are
             <code>SameSite=Lax</code>, so a credentialed <code>fetch</code> or
             <code>&lt;script src&gt;</code> from this demo origin will
-            <em>not</em> see your real Delegate profile (you get a throwaway
+            <em>not</em> see who you are on Delegate (you get a throwaway
             anonymous UNID). A short top-level <strong>popup</strong> to
-            <code>/profile/bridge</code> does send cookies; it
-            <code>postMessage</code>s the real profile back (allowlisted origin
+            <code>/whoami/bridge</code> does send cookies; it
+            <code>postMessage</code>s the real identity back (allowlisted origin
             only — not XSS).
           </p>
           <div class="btn-row">
@@ -126,7 +126,7 @@ profileBridgeUrl.searchParams.set("origin", Astro.url.origin);
               class="btn btn-ghost option-ghost"
               type="button"
               id="profile-fetch"
-              data-url={profileUrl}
+              data-url={whoamiUrl}
             >
               Try credentialed fetch
             </button>
@@ -134,7 +134,7 @@ profileBridgeUrl.searchParams.set("origin", Astro.url.origin);
               class="btn btn-primary"
               type="button"
               id="profile-probe"
-              data-url={profileBridgeUrl.toString()}
+              data-url={whoamiBridgeUrl.toString()}
             >
               Look up via popup bridge
             </button>
@@ -213,9 +213,9 @@ profileBridgeUrl.searchParams.set("origin", Astro.url.origin);
     const btn = e.currentTarget;
     const url = btn instanceof HTMLElement ? btn.dataset.url : null;
     if (!url) return;
-    const popup = window.open(url, "delegate-profile", "popup=yes,width=420,height=320");
+    const popup = window.open(url, "delegate-whoami", "popup=yes,width=420,height=320");
     if (!popup) {
-      window.alert("Popup blocked — allow popups for this site to use the profile bridge.");
+      window.alert("Popup blocked — allow popups for this site to use the whoami bridge.");
     }
   });
 
@@ -226,7 +226,7 @@ profileBridgeUrl.searchParams.set("origin", Astro.url.origin);
       showProfile("// identity bridge (JWT or error)", payload);
       return;
     }
-    if (!event.data || event.data.type !== "delegate-profile") return;
+    if (!event.data || event.data.type !== "delegate-whoami") return;
     const { type: _type, ...identity } = event.data;
     showProfile("// popup bridge (top-level → cookies sent)", identity);
   });
