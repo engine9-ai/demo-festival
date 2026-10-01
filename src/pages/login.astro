@@ -120,7 +120,7 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
             It replaces the old “Share page” button, which did the same thing.
           </p>
           <div class="btn-row">
-            <a class="btn btn-primary" href={loginUrl}>Log in</a>
+            <a class="btn btn-primary" id="identity-redirect" href={loginUrl}>Log in</a>
             <button
               class="btn btn-ghost option-ghost"
               type="button"
@@ -223,7 +223,25 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
 </Layout>
 
 <script define:vars={{ delegateBase }}>
+  const TAG = "[festival login]";
   const identityResult = document.getElementById("identity-result");
+
+  const failed = new URLSearchParams(window.location.search);
+  if (failed.has("error") || failed.has("message")) {
+    console.error(TAG, "The last login failed.", {
+      error: failed.get("error"),
+      kind: failed.get("kind"),
+      message: failed.get("message"),
+      detail: failed.get("detail"),
+    });
+  }
+
+  document.getElementById("identity-redirect")?.addEventListener("click", (e) => {
+    const link = e.currentTarget;
+    console.info(TAG, "Redirecting to Delegate /identity/authorize.", {
+      url: link instanceof HTMLAnchorElement ? link.href : null,
+    });
+  });
 
   function showIdentity(label, data) {
     if (!identityResult) return;
@@ -238,15 +256,32 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
     const btn = e.currentTarget;
     const url = btn instanceof HTMLElement ? btn.dataset.url : null;
     if (!url) return;
+    console.info(TAG, "GET " + url + " (credentialed fetch)");
+    let res;
     try {
-      const res = await fetch(url, { credentials: "include" });
-      const data = await res.json();
+      res = await fetch(url, { credentials: "include" });
+    } catch (err) {
+      console.error(TAG, "GET " + url + " got no response (blocked by CORS, an extension, or the network).", err);
+      showIdentity("// fetch failed before a response", { url, error: String(err) });
+      return;
+    }
+    const info = {
+      url,
+      status: res.status,
+      contentType: res.headers.get("content-type"),
+      cfRay: res.headers.get("cf-ray"),
+    };
+    const text = await res.text();
+    try {
+      const data = JSON.parse(text);
+      console.info(TAG, "whoami response", info, data);
       showIdentity(
         "// credentialed fetch (SameSite=Lax → cookies usually NOT sent cross-site)",
         data,
       );
-    } catch (err) {
-      showIdentity("// fetch failed", { error: String(err) });
+    } catch {
+      console.error(TAG, "whoami did not return JSON (a Cloudflare bot check returns HTML).", info);
+      showIdentity("// whoami did not return JSON", { ...info, bodyStart: text.slice(0, 200) });
     }
   });
 
@@ -254,14 +289,28 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
     const btn = e.currentTarget;
     const url = btn instanceof HTMLElement ? btn.dataset.url : null;
     if (!url) return;
+    console.info(TAG, "Opening the whoami bridge popup.", { url });
     const popup = window.open(url, "delegate-whoami", "popup=yes,width=420,height=320");
     if (!popup) {
+      console.warn(TAG, "The browser blocked the whoami popup.");
       window.alert("Popup blocked — allow popups for this site to use the whoami bridge.");
     }
   });
 
   window.addEventListener("message", (event) => {
-    if (event.origin !== new URL(delegateBase).origin) return;
+    if (event.origin !== new URL(delegateBase).origin) {
+      if (typeof event.data?.type === "string" && event.data.type.startsWith("delegate-")) {
+        console.warn(TAG, "Ignored a " + event.data.type + " message from " + event.origin + "; expected " + new URL(delegateBase).origin + ".");
+      }
+      return;
+    }
+    if (typeof event.data?.type === "string") {
+      console.info(TAG, "Message from Delegate", {
+        type: event.data.type,
+        error: event.data.error,
+        token: typeof event.data.token === "string" ? event.data.token.length + " chars" : undefined,
+      });
+    }
     if (event.data?.type === "delegate-identity") {
       const { type: _t, ...payload } = event.data;
       showIdentity("// identity bridge (JWT or error)", payload);
@@ -282,7 +331,10 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
     wrap instanceof HTMLElement
       ? wrap.dataset.delegateUrl || "https://delegate.engine9.ai"
       : "https://delegate.engine9.ai";
-  const id = createEngine9Id({ delegateUrl, storage: "session" });
+  const TAG = "[festival login]";
+  // A variable, not a literal, so @engine9/id releases without `debug` still accept it.
+  const idConfig = { delegateUrl, storage: "session" as const, debug: true };
+  const id = createEngine9Id(idConfig);
   const identityResult = document.getElementById("identity-result");
 
   function show(label: string, data: unknown) {
@@ -291,36 +343,62 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
     identityResult.textContent = `${label}\n${JSON.stringify(data, null, 2)}`;
   }
 
+  function errorReport(err: unknown) {
+    if (err && typeof err === "object") {
+      const e = err as { name?: string; code?: string; message?: string; details?: unknown };
+      return { name: e.name, code: e.code, message: e.message, details: e.details };
+    }
+    return { message: String(err) };
+  }
+
+  function fail(label: string, err: unknown) {
+    const report = errorReport(err);
+    console.error(TAG, label, report, err);
+    show(`// ${label}`, report);
+  }
+
   document.getElementById("identity-id-popup")?.addEventListener("click", async (e) => {
     const btn = e.currentTarget;
     const raw = btn instanceof HTMLElement ? btn.dataset.fields || "" : "";
     const fields = raw.split(",").map((name) => name.trim()).filter(Boolean);
+    console.info(TAG, "Popup login: opening Delegate /identity/bridge.", { delegateUrl, fields });
+    let identity;
     try {
-      const identity = await id.requestIdentity({
+      identity = await id.requestIdentity({
         minLevel: 1,
         mode: "popup",
         fields,
       });
-      if (!identity) return;
-      const token = sessionStorage.getItem("delegate_token");
-      if (token) {
-        window.location.assign(
-          `/auth/delegate?delegate_token=${encodeURIComponent(token)}`,
-        );
-      } else {
-        show("// @engine9/id popup", identity);
-      }
     } catch (err) {
-      show("// @engine9/id popup failed", { error: String(err) });
+      fail("Popup login failed in @engine9/id (Delegate popup)", err);
+      return;
     }
+    if (!identity) {
+      console.warn(TAG, "The browser blocked the popup; @engine9/id is sending this page to Delegate instead.");
+      return;
+    }
+    console.info(TAG, "Popup login: Delegate returned a verified Identity Token.", {
+      level: identity.level,
+      exp: identity.exp,
+    });
+    const token = sessionStorage.getItem("delegate_token");
+    if (!token) {
+      console.error(TAG, "The Identity Token verified, but delegate_token is not in sessionStorage, so this site cannot finish the login on its server.");
+      show("// @engine9/id popup (token missing from sessionStorage)", identity);
+      return;
+    }
+    console.info(TAG, "Popup login: sending the token to /auth/delegate.");
+    window.location.assign(`/auth/delegate?delegate_token=${encodeURIComponent(token)}`);
   });
 
   document.getElementById("identity-probe")?.addEventListener("click", async () => {
+    console.info(TAG, "Level 0 probe: opening Delegate /identity/bridge.");
     try {
       const identity = await id.requestIdentity({ minLevel: 0, mode: "popup" });
+      console.info(TAG, "Level 0 probe result", identity ?? { empty: true });
       show("// @engine9/id identity (Level 0)", identity ?? { empty: true });
     } catch (err) {
-      show("// @engine9/id failed", { error: String(err) });
+      fail("Level 0 probe failed in @engine9/id (Delegate popup)", err);
     }
   });
 </script>
