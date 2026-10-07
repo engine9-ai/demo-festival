@@ -9,7 +9,7 @@ const db = getDB();
 
 // All per-person data is keyed by the integer person_id (engine9 person.id).
 // The person/person_email/person_address tables are the standard Engine9
-// interface tables managed by @engine9/core.
+// tables from @engine9/schemas, managed by @engine9/core.
 const person = await db
   .prepare(
     `SELECT p.id,

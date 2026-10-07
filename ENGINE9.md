@@ -2,7 +2,7 @@
 
 This demo doubles as the reference installation of the engine9 client on a
 "real" website. The D1 database (`festival-db`) **is** the engine9 database:
-migration `0003_engine9.sql` installed the standard engine9 interface tables
+migration `0003_engine9.sql` installed the standard engine9 tables
 alongside the site's own content tables, and the site now serves the engine9
 client API under `/api` from the same Worker.
 
@@ -28,7 +28,7 @@ the same sequence to install the client on any existing site.
 ### Stage 1 — Add the client library
 
 ```bash
-npm install @engine9/core @engine9/id @engine9/interfaces
+npm install @engine9/core @engine9/id @engine9/schemas
 ```
 
 `package.json` depends on the published releases:
@@ -36,13 +36,14 @@ npm install @engine9/core @engine9/id @engine9/interfaces
 ```json
 "@engine9/core": "^1.4.3",
 "@engine9/id": "^1.4.1",
-"@engine9/interfaces": "^1.8.1"
+"@engine9/schemas": "^1.8.1"
 ```
 
 `@engine9/input-tools` is core's dependency (2.5.1). There is no `overrides`
-block. Core 1.4.3 peers interfaces `^1.8.1`.
+block. Core 1.9.0 peers `@engine9/schemas` `^1.9.0` (the package was
+`@engine9/interfaces` through 1.8.1).
 
-`package.json` `engine9.pluginPackages` is `["@engine9/interfaces"]`.
+`package.json` `engine9.pluginPackages` is `["@engine9/schemas"]`.
 That is the default when the key is omitted. Cloudflare has no filesystem,
 so those plugins are compiled in at build time.
 
@@ -60,16 +61,16 @@ at `@engine9/core/cloudflare/input-tools-shim`, and `knex`, `mysql2`,
 `@engine9/core/cloudflare/unavailable-module`. `i18n-iso-countries`
 resolves to its browser build (`index.js`).
 
-To ship a new interfaces release, upgrade that package only and redeploy.
+To ship a new `@engine9/schemas` release, upgrade that package only and redeploy.
 Leave the `@engine9/core` version as it is:
 
 ```bash
-npm install @engine9/interfaces@latest
+npm install @engine9/schemas@latest
 npm run deploy
 ```
 
 `npm run deploy` is `e9core build-plugins`, then `astro build`, then
-`wrangler deploy`. The new interfaces are in the Worker because
+`wrangler deploy`. The new schema plugins are in the Worker because
 `build-plugins` reads the copy this project installed.
 
 ### Stage 2 — Install the engine9 schema into the existing database
@@ -77,7 +78,7 @@ npm run deploy
 Generate the DDL with the client (no server required):
 
 ```bash
-npx e9core sqlite-ddl --schema @engine9/interfaces/person > engine9-ddl.sql
+npx e9core sqlite-ddl --schema @engine9/schemas/person > engine9-ddl.sql
 ```
 
 That DDL (idempotent `create table if not exists`) is the middle section of
@@ -138,7 +139,7 @@ Two small files:
   touching endpoints), `BatchLogger`, and `createApi` with this site's plugin
   id, upsertable tables, and named reads (`vip-performances` gated by the VIP
   segment, `lineup` public). The first people write or login calls
-  `installStandard()` so the published person interfaces (the inbound
+  `installStandard()` so the published person schema plugins (the inbound
   pipeline) are installed. Core runs only plugins compiled into the build.
 - `src/pages/api/[...path].ts` — Astro catch-all route that hands the raw
   `Request` to `api.handleFetch`. On a plain Worker (no Astro) you'd call
@@ -188,7 +189,11 @@ config and endpoints:
 - `src/lib/roles.ts` — VIP (`minLevel: 1`) and Admin (`minLevel: 3`)
 - `src/lib/engine9.ts` — `delegateAuth()` config (delegate URL, session
   secret, plugin id, role registry)
+- `src/layouts/Layout.astro` — the `@engine9/id` login widget in the
+  header, the main way visitors log in, switch email, pick a role, and log
+  out (see Stage 9)
 - `GET /auth/delegate` — callback: Identity Token (`?delegate_token=`)
+- `POST /auth/delegate` — the same login for the widget (JSON)
 - `POST /auth/role` + `/choose-role` — demo-only first-login role picker
 - `src/middleware.ts` — gates `/vip` and `/admin` from the session
 
@@ -201,16 +206,29 @@ authentication](../core/README.md#authentication) and
 
 ### Stage 9 — Identity Tokens and `@engine9/id`
 
-Preferred login is `GET /identity/authorize` (JWT, public JWKS). The login
-page also uses `@engine9/id` for a popup (`requestIdentity`) that lands on
-the same `/auth/delegate` callback. Registration uses the seeded
-`e9publickey_` (scope `public`) on `POST /people`.
+Visitors use the `@engine9/id` login widget (`@engine9/id/widget`) in the
+header. The layout renders the server session (`widgetUser(session)` in
+`src/lib/session.ts`) into the widget as `user`. The widget's hooks call this
+site's routes:
+
+- `onLogin(identity, token)` — `POST /auth/delegate` with `{ delegate_token }`;
+  answers `{ user, needsRole }`
+- `onRoleChange(roleId)` — `POST /auth/role` with `Accept: application/json`;
+  answers `{ redirect }`
+- `onLogout()` — `POST /auth/logout` (`keepalive`), started in the same click
+  as the Delegate logout popup
+
+Underneath, every login is `GET /identity/authorize` or the
+`/identity/bridge` popup (JWT, public JWKS). `/login` keeps the redirect
+flow and a popup (`requestIdentity`) that lands on the `GET /auth/delegate`
+callback. Registration uses the seeded `e9publickey_` (scope `public`) on
+`POST /people`.
 
 `auth.identityUrl({ returnTo, minLevel, fields: ["display_name", "email"], responseMode: "query" })`
 builds the authorize URL. Those two fields are required. The login sends
-no optional fields. `GET /auth/change` sends the same request with
-`prompt: "select"` ("Change your Delegate information"), so a signed-in
-person can pick another email address. See
+no optional fields. The widget's **Switch email** and `GET /auth/change`
+send the same request with `prompt: "select"` ("Change your Delegate
+information"), so a signed-in person can pick another email address. See
 [`docs/identity-flow.md`](docs/identity-flow.md).
 
 ## What stays on the engine9 server

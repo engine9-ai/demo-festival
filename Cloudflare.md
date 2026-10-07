@@ -58,17 +58,17 @@ npm run deploy
 ```
 
 `e9core build-plugins` writes `engine9.plugins.js` from the installed
-`@engine9/interfaces` (every plugin in `engine9.pluginPackages`). Astro
+`@engine9/schemas` (every plugin in `engine9.pluginPackages`). Astro
 aliases `@engine9/core/plugins/site` to that file, so the Worker bundle
-contains the interfaces. Wrangler uploads that Worker (entry point
+contains the schema plugins. Wrangler uploads that Worker (entry point
 `@astrojs/cloudflare/entrypoints/server`) plus the static assets in
 `dist/`, and binds the D1 database as `env.DB`.
 
-A new interfaces version is an upgrade of that package, then the same
+A new `@engine9/schemas` version is an upgrade of that package, then the same
 deploy. Leave `@engine9/core` on its current version:
 
 ```bash
-npm install @engine9/interfaces@latest
+npm install @engine9/schemas@latest
 npm run deploy
 ```
 

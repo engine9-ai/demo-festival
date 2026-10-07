@@ -26,14 +26,14 @@ import {
  * Engine9 client wiring for the festival demo.
  *
  * The D1 binding (festival-db) IS the engine9 database: migration
- * 0003_engine9.sql installed the standard Engine9 interface schema and seeded
+ * 0003_engine9.sql installed the standard Engine9 tables and seeded
  * the plugin row, a demo API key, and a VIP segment. The client API exposes
  * people writes, person-related upserts, and segment-gated reads under /api.
  */
 
 /**
  * Plugins compiled into this build. `e9core build-plugins` writes
- * `engine9.plugins.js` from `@engine9/interfaces` (package.json
+ * `engine9.plugins.js` from `@engine9/schemas` (package.json
  * `engine9.pluginPackages`). Vite and wrangler alias
  * `@engine9/core/plugins/site` to that file. The stub export is null.
  */
@@ -52,10 +52,10 @@ export function createPersonWorker() {
 let standardPlugins: Promise<void> | undefined;
 
 /**
- * Install the published person interfaces (plugin rows + inbound snapshots)
+ * Install the published person schema plugins (plugin rows + inbound snapshots)
  * once per isolate. The seeded `@demo/festival-website` row is attribution
  * for writes; it is not an inbound people plugin. `POST /people` and login
- * need the standard interfaces installed.
+ * need the standard schema plugins installed.
  */
 export function ensureStandardPlugins(): Promise<void> {
   if (!standardPlugins) {

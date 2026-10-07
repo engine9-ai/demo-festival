@@ -68,7 +68,7 @@ export default defineConfig({
     },
     resolve: {
       alias: [
-        // @engine9/core's interface transforms import @engine9/input-tools,
+        // The @engine9/schemas transforms import @engine9/input-tools,
         // whose index pulls server-only deps (AWS SDK, archiver, googleapis).
         // The shim re-exports the portable pieces. Exact match only --
         // subpaths like @engine9/input-tools/timelineTypes.js stay intact.

@@ -24,7 +24,7 @@ npm run dev
 ```
 
 Dependencies are the published npm releases: `@engine9/core` ^1.4.3,
-`@engine9/id` ^1.4.1, and `@engine9/interfaces` ^1.8.1. `@engine9/input-tools`
+`@engine9/id` ^1.4.1, and `@engine9/schemas` ^1.8.1. `@engine9/input-tools`
 comes in with core (2.5.1).
 
 Open **http://localhost:3000** (or **http://localhost:3001** /
@@ -50,19 +50,35 @@ to the seed state.
 ### Auth endpoints
 
 Login is provided by the shared **delegate** service via `@engine9/core`.
+
+Visitors interact with Delegate through the
+[`@engine9/id` login widget](../id/README.md#the-login-widget) in the header
+of every page (`src/layouts/Layout.astro`). It is the main way in. The button
+shows the session's email and role, or "Login". Its dialog logs in with
+Google (the Delegate popup, then `POST /auth/delegate`), picks VIP or Admin
+(`POST /auth/role`), switches email (the Delegate popup with
+`prompt=select`), and logs out (`POST /auth/logout`), all on the current
+page. The server session stays the source of truth: the layout passes it to
+the widget as `user`, and the widget's hooks post to the endpoints below.
+
 This site only wires config and HTTP endpoints:
 
 | Endpoint | Purpose |
 | --- | --- |
 | `GET /login` | Identity Token (`/identity/authorize`). Required fields `display_name`, `email`; no optional fields |
 | `GET /auth/delegate` | Callback: Identity Token (`?delegate_token=`) |
+| `POST /auth/delegate` | Same login for the header's login widget: JSON `{ delegate_token }` in, `{ user, needsRole }` out |
 | `GET /auth/change` | "Change your Delegate information": the login request with `prompt=select`, so the person can pick another email address |
-| `POST /auth/role` | Demo-only: grants VIP or Admin after first login |
+| `POST /auth/role` | Demo-only: grants VIP or Admin after first login. Answers JSON `{ redirect }` when asked with `Accept: application/json` |
 | `GET /choose-role` | First-time users pick VIP or Admin |
 | `POST /auth/logout` (or site logout) | Clears the local session cookie |
 
 `src/middleware.ts` reads the session on every request and redirects to
 `/login` (or `/choose-role`) before any gated page renders.
+
+`/login` and `/choose-role` are the redirect fallback (no popups, deep
+links from the middleware) and a debugging page. The footer links to
+`/login`.
 
 For how Identity Tokens, person resolution, roles-as-segments, and signed
 sessions work, see [`@engine9/core` README — Delegate
@@ -101,7 +117,7 @@ integer `person_id`.
 ## engine9 client
 
 The D1 database is also an **engine9 database**: migration
-`0003_engine9.sql` installs the standard engine9 interface tables (`person`,
+`0003_engine9.sql` installs the standard engine9 tables (`person`,
 `person_email`, `person_segment`, ...) and the site serves the
 `@engine9/core` API under `/api` — API-key-authenticated people creation,
 person-related upserts, and segment-gated content reads. See

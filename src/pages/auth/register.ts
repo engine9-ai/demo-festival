@@ -6,7 +6,7 @@ const EMAIL_TYPES = new Set(["Personal", "Work", "Other"]);
 /**
  * Registration handler. Forwards the form to POST /api/people server-side so
  * the API key never reaches the browser. Field names match
- * `@engine9/interfaces` person + person_email.
+ * `@engine9/schemas` person + person_email.
  */
 export const POST: APIRoute = async ({ request, redirect }) => {
   const form = await request.formData();
