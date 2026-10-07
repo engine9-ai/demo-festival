@@ -6,7 +6,7 @@ import {
 } from "@engine9/core/auth/delegate";
 import type { DelegateLoginFailure } from "@engine9/core/auth/delegate";
 import { delegateAuth, ensureStandardPlugins } from "../../lib/engine9";
-import { setSession, needsRole, isAdmin, type Session } from "../../lib/session";
+import { setSession, needsRole, isAdmin, widgetUser, type Session } from "../../lib/session";
 
 /** `error=` codes Delegate's /identity/authorize sends back instead of a token. */
 const DELEGATE_AUTHORIZE_ERRORS: Record<string, { kind: "auth" | "configuration"; message: string }> = {
@@ -97,4 +97,45 @@ export const GET: APIRoute = async ({ url, cookies, redirect }) => {
   // New delegate users have no role segments yet -> pick one (demo policy).
   if (needsRole(session)) return redirect("/choose-role", 303);
   return redirect(isAdmin(session) ? "/admin" : "/vip", 303);
+};
+
+/**
+ * The same login for the header's Delegate login widget, which already has
+ * the Identity Token from its popup: `{ delegate_token }` in, the session's
+ * widget user out. The role is picked next, in the same dialog.
+ */
+export const POST: APIRoute = async ({ request, url, cookies }) => {
+  const body = (await request.json().catch(() => null)) as { delegate_token?: unknown } | null;
+  const identityToken = typeof body?.delegate_token === "string" ? body.delegate_token : "";
+  let session: Session;
+  try {
+    if (!identityToken) {
+      throw createDelegateLoginFailure("invalid_identity_token", {
+        detail: "POST /auth/delegate needs a JSON body with delegate_token",
+      });
+    }
+    await ensureStandardPlugins();
+    ({ session } = await delegateAuth().login(identityToken, {
+      returnTo: new URL("/auth/delegate", url.origin).toString(),
+      domain: domainFromUrl(url.origin) ?? undefined,
+    }));
+  } catch (e) {
+    const failure = normalizeDelegateLoginFailure(e);
+    console.error(
+      "delegate login failed",
+      { reason: failure.reason, kind: failure.kind, detail: failure.message },
+      e,
+    );
+    return Response.json(
+      {
+        error: failure.reason,
+        kind: failure.kind,
+        message: failure.userMessage || failure.message,
+        detail: failure.message,
+      },
+      { status: failure.kind === "configuration" ? 500 : 400 },
+    );
+  }
+  setSession(cookies, session);
+  return Response.json({ user: widgetUser(session), needsRole: needsRole(session) });
 };

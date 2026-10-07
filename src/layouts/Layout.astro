@@ -1,5 +1,8 @@
 ---
-import { canAccessVip, isAdmin, primaryRole } from "../lib/session";
+import { env } from "cloudflare:workers";
+import { canAccessVip, isAdmin, widgetUser } from "../lib/session";
+import { LOGIN_FIELDS } from "../lib/engine9";
+import { ADMIN_SEGMENT_ID, ROLE_REGISTRY, VIP_SEGMENT_ID } from "../lib/roles";
 
 interface Props {
   title: string;
@@ -8,6 +11,27 @@ const { title } = Astro.props;
 const session = Astro.locals.session;
 const path = Astro.url.pathname;
 const isAdminRoute = path.startsWith("/admin");
+
+/** Header login widget. Role ids are the keys `/auth/role` accepts. */
+const widget = {
+  delegateUrl: env.DELEGATE_URL || "https://delegate.engine9.ai",
+  fields: LOGIN_FIELDS,
+  user: widgetUser(session),
+  roles: [
+    {
+      id: "vip",
+      name: ROLE_REGISTRY[VIP_SEGMENT_ID].name,
+      description: "VIP Lounge and VIP-only sets",
+      requiredAuth: ROLE_REGISTRY[VIP_SEGMENT_ID].requiredAuth,
+    },
+    {
+      id: "admin",
+      name: ROLE_REGISTRY[ADMIN_SEGMENT_ID].name,
+      description: "Manage artists, schedule, tickets, and people",
+      requiredAuth: ROLE_REGISTRY[ADMIN_SEGMENT_ID].requiredAuth,
+    },
+  ],
+};
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -40,27 +64,8 @@ const navLinks = [
           <a href="/admin" class:list={["admin-link", { active: path.startsWith("/admin") }]}>Admin</a>
         )}
       </nav>
-      <div class="session-box">
-        {session ? (
-          <>
-            <span
-              class:list={["badge", primaryRole(session)]}
-              title={session.auth?.signInProvider
-                ? `via delegate · ${session.auth.signInProvider}${session.auth.twoFactor ? " · 2FA" : ""}${session.level != null ? ` · Level ${session.level}` : ""}`
-                : session.level != null
-                  ? `via delegate · Level ${session.level}`
-                  : "via delegate"}
-            >{primaryRole(session).toUpperCase()}{session.level != null ? ` · L${session.level}` : ""}</span>
-            <a class="btn btn-ghost" href="/auth/change" title="Change your Delegate information: pick another email address">
-              Change Delegate info
-            </a>
-            <form method="post" action="/auth/logout">
-              <button class="btn btn-ghost" type="submit">Log out</button>
-            </form>
-          </>
-        ) : (
-          <a class="btn btn-ghost" href="/login">Log in</a>
-        )}
+      <div class="session-box" data-e9-login-widget data-widget={JSON.stringify(widget)}>
+        <noscript><a class="btn btn-ghost" href="/login">Log in</a></noscript>
       </div>
     </header>
 
@@ -74,10 +79,62 @@ const navLinks = [
         Demo site. Authentication is handled by the shared
         <strong>delegate</strong> service; access levels are this site's own
         segments.
+        <a href="/login">Login options and Delegate debugging</a>.
       </p>
     </footer>
   </body>
 </html>
+
+<script>
+  import { loginWidget, type LoginWidgetUser } from "@engine9/id/widget";
+
+  /**
+   * One Delegate login widget for the whole site. The Identity Token from its
+   * popup goes to POST /auth/delegate, which mints this site's session; the
+   * role is picked in the same dialog (POST /auth/role).
+   */
+  const slot = document.querySelector<HTMLElement>("[data-e9-login-widget]");
+  if (slot) {
+    const config = JSON.parse(slot.dataset.widget || "{}");
+
+    type ServerAnswer = { message?: string; user?: LoginWidgetUser; redirect?: string };
+
+    async function readJson(res: Response): Promise<ServerAnswer> {
+      const body = (await res.json().catch(() => ({}))) as ServerAnswer;
+      if (!res.ok) throw new Error(body.message || `The server answered ${res.status}.`);
+      return body;
+    }
+
+    loginWidget({
+      ...config,
+      target: slot,
+      storage: "session",
+      siteName: "Solstice Wave",
+      async onLogin(_identity, token) {
+        const res = await fetch("/auth/delegate", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ delegate_token: token }),
+        });
+        return (await readJson(res)).user;
+      },
+      async onRoleChange(roleId) {
+        const form = new FormData();
+        form.set("role", roleId);
+        const res = await fetch("/auth/role", {
+          method: "POST",
+          headers: { accept: "application/json" },
+          body: form,
+        });
+        window.location.assign((await readJson(res)).redirect ?? "/");
+      },
+      async onLogout() {
+        await fetch("/auth/logout", { method: "POST", keepalive: true });
+        window.location.assign("/");
+      },
+    });
+  }
+</script>
 
 <style is:global>
   :root {
@@ -178,7 +235,20 @@ const navLinks = [
   .site-header nav a.admin-link { color: var(--admin); }
 
   .session-box { margin-left: auto; display: flex; align-items: center; gap: 0.6rem; }
-  .session-box form { margin: 0; }
+
+  /* Delegate login widget: dark festival colors, role badge like .badge below. */
+  .e9-login-widget {
+    --e9-accent: #a855f7;
+    --e9-bg: var(--surface);
+    --e9-fg: var(--text);
+    --e9-muted: var(--muted);
+    --e9-border: var(--border);
+    --e9-surface: var(--surface-2);
+    --e9-font: 15px/1.45 var(--font);
+  }
+  .e9-login-widget::part(button) { font-weight: 700; font-size: 0.9rem; }
+  .e9-login-widget[data-role="vip"]::part(role) { background: rgba(251, 191, 36, 0.15); color: var(--vip); }
+  .e9-login-widget[data-role="admin"]::part(role) { background: rgba(52, 211, 153, 0.15); color: var(--admin); }
 
   .badge {
     font-size: 0.7rem;

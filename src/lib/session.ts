@@ -56,7 +56,7 @@ export function clearSession(cookies: AstroCookies): void {
 }
 
 /** Prefer the Identity Token `level`; infer from auth when an older session has none. */
-function inferredLevel(session: Session): number | undefined {
+export function inferredLevel(session: Session): number | undefined {
   if (typeof session.level === "number") return session.level;
   const auth = session.auth;
   if (!auth) return undefined;
@@ -94,6 +94,21 @@ export const canClaimRole = (session: Session | null, roleId: string): boolean =
 /** Logged in via delegate but hasn't picked (or been granted) a role yet. */
 export const needsRole = (session: Session | null): boolean =>
   sessionNeedsRole(session);
+
+/**
+ * What the header's Delegate login widget shows: the session's email, its
+ * role key (`vip` | `admin`, or null before one is picked), and its Level.
+ */
+export function widgetUser(session: Session | null) {
+  if (!session) return null;
+  const role = primaryRole(session);
+  return {
+    email: session.email ?? null,
+    role: role === "member" ? null : role,
+    level: inferredLevel(session),
+    twoFactor: Boolean(session.auth?.twoFactor),
+  };
+}
 
 /**
  * CSS/badge label for the highest role (admin | vip | member).

@@ -14,18 +14,30 @@ import { canClaimRole, getSession, setSession } from "../../lib/session";
  * production deployments would assign segments through their own processes.
  */
 export const POST: APIRoute = async ({ request, cookies, redirect }) => {
+  // The header's Delegate login widget asks for JSON instead of redirects.
+  const wantsJson = request.headers.get("accept")?.includes("application/json") ?? false;
+  const refuse = (status: number, error: string, message: string, to: string) =>
+    wantsJson ? Response.json({ error, message }, { status }) : redirect(to, 303);
+
   const session = getSession(cookies);
-  if (!session) return redirect("/login?required=member", 303);
+  if (!session) return refuse(401, "login_required", "Log in first.", "/login?required=member");
 
   const form = await request.formData();
   const role = form.get("role");
   const roleId =
     role === "admin" ? ADMIN_SEGMENT_ID : role === "vip" ? VIP_SEGMENT_ID : null;
   if (!roleId) {
-    return new Response("Unknown role", { status: 400 });
+    return wantsJson
+      ? Response.json({ error: "unknown_role", message: "Unknown role" }, { status: 400 })
+      : new Response("Unknown role", { status: 400 });
   }
   if (!canClaimRole(session, roleId)) {
-    return redirect("/choose-role?error=level", 303);
+    return refuse(
+      403,
+      "level",
+      "That role needs a higher Identity Level. VIP needs Level 1; Admin needs Level 3 (trusted provider).",
+      "/choose-role?error=level",
+    );
   }
 
   const { session: next } = await delegateAuth().changeRole({
@@ -36,5 +48,6 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
   });
   setSession(cookies, next);
 
-  return redirect(roleId === ADMIN_SEGMENT_ID ? "/admin" : "/vip", 303);
+  const to = roleId === ADMIN_SEGMENT_ID ? "/admin" : "/vip";
+  return wantsJson ? Response.json({ redirect: to }) : redirect(to, 303);
 };
