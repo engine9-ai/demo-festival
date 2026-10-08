@@ -40,8 +40,7 @@ npm install @engine9/core @engine9/id @engine9/schemas
 ```
 
 `@engine9/input-tools` is core's dependency (2.5.1). There is no `overrides`
-block. Core 1.9.0 peers `@engine9/schemas` `^1.9.0` (the package was
-`@engine9/interfaces` through 1.8.1).
+block. Core 1.9.1 peers `@engine9/schemas` `^1.9.0`.
 
 `package.json` `engine9.pluginPackages` is `["@engine9/schemas"]`.
 That is the default when the key is omitted. Cloudflare has no filesystem,

@@ -1,4 +1,4 @@
--- Align copied engine9 tables with the published interfaces.
+-- Align copied engine9 tables with the published @engine9/schemas tables.
 -- SQLite cannot ADD a NOT NULL column whose default is CURRENT_TIMESTAMP,
 -- so person_segment and person_phone are rebuilt. person_remote is new.
 

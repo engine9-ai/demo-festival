@@ -1,5 +1,5 @@
 -- Migration 0003: adopt the Engine9 client schema.
--- The D1 database is now the engine9 database: the standard Engine9 interface
+-- The D1 database is now the engine9 database: the standard Engine9
 -- tables replace the demo's ad-hoc person table (generated with
 -- `npx e9core sqlite-ddl`), plus the api_key table used by the client API.
 -- Demo content tables (artist, performance, ticket, ticket_type) are unchanged
@@ -9,7 +9,7 @@
 ALTER TABLE person RENAME TO demo_person;
 
 -- 2. Engine9 standard schema (client-generated, idempotent)
--- @engine9/interfaces/plugin
+-- @engine9/schemas/plugin
 create table if not exists "plugin" (
   "id" char(36) not null,
   "path" varchar(255),
@@ -85,7 +85,7 @@ when NEW.modified_at is OLD.modified_at
 begin
   update "input" set modified_at = CURRENT_TIMESTAMP where rowid = NEW.rowid;
 end;
--- @engine9/interfaces/person
+-- @engine9/schemas/person
 create table if not exists "person" (
   "id" integer not null primary key autoincrement,
   "given_name" varchar(255),
@@ -110,8 +110,8 @@ create table if not exists "person_identifier" (
 create index if not exists "idx_person_identifier_person_id" on "person_identifier" ("person_id");
 create index if not exists "idx_person_identifier_id_value" on "person_identifier" ("id_value");
 create unique index if not exists "uidx_person_identifier_source_input_id_id_value_person_id" on "person_identifier" ("source_input_id","id_value","person_id");
--- @engine9/interfaces/person_remote
--- @engine9/interfaces/segment
+-- @engine9/schemas/person_remote
+-- @engine9/schemas/segment
 create table if not exists "segment_folder" (
   "id" char(36) not null,
   "name" varchar(255),
@@ -173,7 +173,7 @@ create table if not exists "person_segment" (
 );
 create unique index if not exists "uidx_person_segment_segment_id_person_id" on "person_segment" ("segment_id","person_id");
 create index if not exists "idx_person_segment_person_id" on "person_segment" ("person_id");
--- @engine9/interfaces/person_email
+-- @engine9/schemas/person_email
 create table if not exists "person_email" (
   "id" integer not null primary key autoincrement,
   "person_id" bigint not null default 0,
@@ -197,7 +197,7 @@ when NEW.modified_at is OLD.modified_at
 begin
   update "person_email" set modified_at = CURRENT_TIMESTAMP where rowid = NEW.rowid;
 end;
--- @engine9/interfaces/person_phone
+-- @engine9/schemas/person_phone
 create table if not exists "person_phone" (
   "id" integer not null primary key autoincrement,
   "person_id" bigint not null default 0,
@@ -221,7 +221,7 @@ when NEW.modified_at is OLD.modified_at
 begin
   update "person_phone" set modified_at = CURRENT_TIMESTAMP where rowid = NEW.rowid;
 end;
--- @engine9/interfaces/person_address
+-- @engine9/schemas/person_address
 create table if not exists "person_address" (
   "id" integer not null primary key autoincrement,
   "person_id" bigint not null default 0,
@@ -251,7 +251,7 @@ when NEW.modified_at is OLD.modified_at
 begin
   update "person_address" set modified_at = CURRENT_TIMESTAMP where rowid = NEW.rowid;
 end;
--- @engine9/interfaces/timeline
+-- @engine9/schemas/timeline
 create table if not exists "timeline" (
   "id" char(36) not null,
   "ts" datetime,
@@ -265,7 +265,7 @@ create table if not exists "timeline" (
 create index if not exists "idx_timeline_ts" on "timeline" ("ts");
 create index if not exists "idx_timeline_person_id" on "timeline" ("person_id");
 create index if not exists "idx_timeline_input_id" on "timeline" ("input_id");
--- @engine9/interfaces/source_code
+-- @engine9/schemas/source_code
 create table if not exists "source_code_dictionary" (
   "source_code_id" integer not null primary key autoincrement,
   "source_code" varchar(180) not null default '',
@@ -286,7 +286,7 @@ when NEW.modified_at is OLD.modified_at
 begin
   update "source_code_dictionary" set modified_at = CURRENT_TIMESTAMP where rowid = NEW.rowid;
 end;
--- @engine9/interfaces/transaction/core
+-- @engine9/schemas/transaction/core
 create table if not exists "transaction" (
   "id" char(36) not null,
   "ts" datetime,
@@ -325,7 +325,7 @@ when NEW.modified_at is OLD.modified_at
 begin
   update "transaction" set modified_at = CURRENT_TIMESTAMP where rowid = NEW.rowid;
 end;
--- @engine9/interfaces/transaction/contact_details
+-- @engine9/schemas/transaction/contact_details
 create table if not exists "transaction" (
   "street_1" varchar(255),
   "street_2" varchar(255),
