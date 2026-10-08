@@ -26,7 +26,7 @@ const vip = canAccessVip(Astro.locals.session);
     All public sets on the Main Stage and Lagoon Stage.
     {vip
       ? <span> Your VIP-only sessions are on the <a href="/vip">VIP Lounge page</a>.</span>
-      : <span> VIP ticket holders get extra lounge sessions — <a href="/login">log in</a> to see them.</span>}
+      : <span> VIP ticket holders get extra lounge sessions — <a href="/login" data-open-login>log in</a> to see them.</span>}
   </p>
 
   {days.map((day) => (

@@ -60,15 +60,16 @@ Google (the Delegate popup, then `POST /auth/delegate`), picks VIP or Admin
 `prompt=select`), and logs out (`POST /auth/logout`), all on the current
 page. The server session stays the source of truth: the layout passes it to
 the widget as `user`, and the widget's hooks post to the endpoints below.
+In-page log in links (`data-open-login`) open the same dialog.
 
 This site only wires config and HTTP endpoints:
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /login` | Identity Token (`/identity/authorize`). Required fields `display_name`, `email`; no optional fields |
+| `GET /login` | The Login button again, then the fallback: Identity Token (`/identity/authorize`) by redirect or popup. Required fields `display_name`, `email`; no optional fields |
 | `GET /auth/delegate` | Callback: Identity Token (`?delegate_token=`) |
 | `POST /auth/delegate` | Same login for the header's login widget: JSON `{ delegate_token }` in, `{ user, needsRole }` out |
-| `GET /auth/change` | "Change your Delegate information": the login request with `prompt=select`, so the person can pick another email address |
+| `GET /auth/change` | "Change your Delegate information": the widget's Switch email as a redirect (`prompt=select`), so the person can pick another email address |
 | `POST /auth/role` | Demo-only: grants VIP or Admin after first login. Answers JSON `{ redirect }` when asked with `Accept: application/json` |
 | `GET /choose-role` | First-time users pick VIP or Admin |
 | `POST /auth/logout` (or site logout) | Clears the local session cookie |

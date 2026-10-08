@@ -19,13 +19,13 @@ const { results: ticketTypes } = await db
         <h3>{t.name}</h3>
         <p class="price">{formatPrice(t.price_cents)}<span class="muted"> / weekend</span></p>
         <p class="muted">{t.description}</p>
-        <a class="btn btn-primary" href="/login">Buy {t.name}</a>
+        <a class="btn btn-primary" href="/login" data-open-login>Buy {t.name}</a>
       </div>
     ))}
   </div>
 
   <p class="muted" style="margin-top: 2rem; font-size: 0.9rem;">
-    This is a demo — the buy buttons take you to the pretend login instead of a checkout.
+    This is a demo — the buy buttons open the Login dialog instead of a checkout.
   </p>
 </Layout>
 

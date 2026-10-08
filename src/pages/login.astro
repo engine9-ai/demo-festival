@@ -45,22 +45,26 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
     <h1>Log in</h1>
     <p class="lede">
       This site uses the shared <strong>delegate</strong> service to log in.
-      Option 1 is how a real site logs people in. Options 2 and 3 are
-      debugging tools that show what delegate knows about this browser.
+      The <strong>Login</strong> button at the top of every page (option 1)
+      is how a real site logs people in. Option 2 is the fallback for
+      browsers without JavaScript or popups. Options 3 and 4 are debugging
+      tools that show what delegate knows about this browser.
     </p>
 
     {session && (
       <p class="notice">
         You're logged in as <strong>{primaryRole(session).toUpperCase()}</strong>.
-        Wrong email address or name?
-        <a href={changeUrl}>Change your Delegate information</a>.
+        Wrong email address or name? Open
+        <a href={changeUrl} data-open-login>Login</a> and choose
+        <strong>Switch email</strong>.
       </p>
     )}
 
     {required && (
       <p class="notice">
         That page requires <strong>{required.toUpperCase()}</strong> access.
-        Use one of the options below to continue.
+        <a href={loginUrl} data-open-login>Log in</a> and pick that role to
+        continue.
       </p>
     )}
 
@@ -93,34 +97,54 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
 
       <div class="options">
         <article class="card option">
-          <h2>1. Log in with Delegate</h2>
-          <p class="tag">Identity Token · JWT · no shared secret</p>
+          <h2>1. The Login button</h2>
+          <p class="tag">@engine9/id login widget · the default way to use Delegate</p>
           <p>
-            <strong>Log in</strong> and <strong>Log in (popup)</strong> send the
-            same request: <code>/identity/authorize</code> with
-            <code>min_level=1</code> and required fields
-            <code>display_name</code> and <code>email</code>. The first takes
-            this page to delegate and back. The second opens delegate in a
-            popup with <code>@engine9/id</code>. Either way delegate signs an
-            Identity Token and this site verifies it via JWKS.
+            The <strong>Login</strong> button in the header is
+            <code>loginWidget()</code> from <code>@engine9/id/widget</code>.
+            One dialog on this page logs in with Google, switches the email
+            address this site sees, picks VIP or Admin, and logs out. Delegate
+            opens in a popup and signs an Identity Token; the widget posts it
+            to <code>/auth/delegate</code>, which verifies it via JWKS and
+            starts this site’s session. The button below opens the same dialog.
           </p>
           <p class="outcome">
             <strong>You’ll see:</strong> delegate’s sign-in if you are not
             signed in there, then its share page the first time. The share
             page lists your email addresses so you can pick one. After that,
             delegate remembers your choice (a Grant) and logs you straight in.
-            Then this demo’s role picker. VIP requires Level 1; Admin requires
-            Level 3.
+            Then the dialog’s Role section. VIP requires Level 1; Admin
+            requires Level 3.
           </p>
           <p>
-            <strong>Change your Delegate information</strong> sends the same
-            request with <code>prompt=select</code>. Delegate always shows the
-            share page, even when you already have a Grant. Use it to pick a
-            different email address, add one, or switch Google accounts.
-            It replaces the old “Share page” button, which did the same thing.
+            <strong>Switch email</strong> in the dialog asks delegate again
+            with <code>prompt=select</code>, so the share page always appears.
+            Use it to pick a different email address, add one, or switch
+            Google accounts.
           </p>
           <div class="btn-row">
-            <a class="btn btn-primary" id="identity-redirect" href={loginUrl}>Log in</a>
+            <a class="btn btn-primary" href={loginUrl} data-open-login>Login</a>
+          </div>
+        </article>
+
+        <article class="card option">
+          <h2>2. Without the widget (fallback)</h2>
+          <p class="tag">Identity Token · JWT · no shared secret</p>
+          <p>
+            The same request the widget sends, for browsers without
+            JavaScript or popups and for debugging:
+            <code>/identity/authorize</code> with <code>min_level=1</code>
+            and required fields <code>display_name</code> and
+            <code>email</code>. <strong>Log in</strong> takes this page to
+            delegate and back. <strong>Log in (popup)</strong> calls
+            <code>requestIdentity()</code> from <code>@engine9/id</code>
+            directly. <strong>Change your Delegate information</strong> is
+            the widget’s Switch email as a redirect
+            (<code>prompt=select</code>). After a redirect login you pick a
+            role on <code>/choose-role</code>.
+          </p>
+          <div class="btn-row three">
+            <a class="btn btn-ghost option-ghost" id="identity-redirect" href={loginUrl}>Log in</a>
             <button
               class="btn btn-ghost option-ghost"
               type="button"
@@ -136,7 +160,7 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
         </article>
 
         <article class="card option">
-          <h2>2. Who am I (debug, no login)</h2>
+          <h2>3. Who am I (debug, no login)</h2>
           <p class="tag">Pre-login identity</p>
           <p>
             Asks Delegate who this browser already is — <code>unid</code> and
@@ -183,7 +207,7 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
         </article>
 
         <article class="card option">
-          <h2>3. Delegate’s own pages (debug)</h2>
+          <h2>4. Delegate’s own pages (debug)</h2>
           <p class="tag">Delegate only · no festival session</p>
           <p>
             <strong>Sign in to Delegate only</strong> opens Delegate’s own
@@ -196,8 +220,8 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
           </p>
           <p class="outcome">
             <strong>You’ll see:</strong> Delegate’s pages in a new tab. This
-            demo’s header stays logged out until you use option 1. Option 2’s
-            popup bridge will then report <code>loggedIn: true</code>.
+            demo’s header stays logged out until you use its Login button.
+            Option 3’s popup bridge will then report <code>loggedIn: true</code>.
           </p>
           <div class="btn-row">
             <a class="btn btn-ghost option-ghost" href={directDelegateLoginUrl} target="_blank" rel="noreferrer">
@@ -215,8 +239,8 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
         You're currently logged in as <strong>{primaryRole(session).toUpperCase()}</strong>
         (person_id {session.personId}). Logging in again re-verifies with Delegate;
         this demo clears roles each login so you get the role picker again.
-        <a href={changeUrl}>Change your Delegate information</a> does the same
-        and lets you pick another email address first.
+        <strong>Switch email</strong> in the <a href={changeUrl} data-open-login>Login</a>
+        dialog does the same and lets you pick another email address first.
       </p>
     )}
   </div>
@@ -427,10 +451,10 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
   }
   @media (min-width: 520px) {
     .btn-row { grid-template-columns: 1fr 1fr; }
-    .option:first-child .btn-row { grid-template-columns: 1fr; }
+    .option:first-child .btn-row, .btn-row.three { grid-template-columns: 1fr; }
   }
   @media (min-width: 720px) {
-    .option:first-child .btn-row { grid-template-columns: 1fr 1fr 1fr; }
+    .btn-row.three { grid-template-columns: 1fr 1fr 1fr; }
   }
   .btn-row .btn { margin-top: 0; }
   .option-ghost { border-color: var(--border); }

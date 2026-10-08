@@ -11,8 +11,13 @@ the session's email and role. Its dialog runs every Delegate step on the
 current page: Log in with Google, Switch email, Change role (VIP or Admin),
 and Log out. Only the Delegate popup opens a second window.
 
-`/login` is the fallback: the full-page redirect flow, a popup button, a
-Level 0 probe, and the reason codes when sign-in fails.
+In-page log in links (Schedule, Tickets, Register, and the notices on
+`/login`) carry `data-open-login`; the layout opens the same dialog for them.
+Their `href` is the no-JavaScript fallback.
+
+`/login` leads with the same Login button, then the fallback: the full-page
+redirect flow, a popup button, a Level 0 probe, and the reason codes when
+sign-in fails.
 
 ## Roles (example)
 
@@ -45,13 +50,13 @@ Level 0 (`level_unavailable` when `min_level` is above 0).
 
 ## Log in vs. Switch email
 
-The widget's **Log in with Google**, and `/login`'s **Log in** and **Log in
-(popup)**, are the same request. The widget and the popup button use an
-`@engine9/id` popup; **Log in** takes the page to delegate and back. All go
-straight through when the Grant already covers the request.
+The widget's **Log in with Google**, and the fallback **Log in** and **Log
+in (popup)** on `/login`, are the same request. The widget and the popup
+button use an `@engine9/id` popup; **Log in** takes the page to delegate and
+back. All go straight through when the Grant already covers the request.
 
-**Switch email** in the widget (and **Change your Delegate information**,
-`GET /auth/change`, on `/login`) sends the same request with
+**Switch email** in the widget (and its redirect fallback **Change your
+Delegate information**, `GET /auth/change`, on `/login`) sends the same request with
 `prompt=select`. Delegate always
 shows the share page, with the person's email addresses to pick from, a link
 to add one, and a link to use a different Google account. The new token
@@ -59,10 +64,11 @@ replaces this site's session. Picking another address keeps the same Domain
 UNID (`sub`), so the site sees the same person. Switching Google accounts
 signs in as a different delegate User, so the site sees a different `sub`.
 
-The widget always offers it. Also show it wherever a signed-in person could
-be stuck with the wrong address: the login page and login errors. Signing in
-again does not help them, because delegate goes straight through with the
-remembered Grant.
+The widget always offers it. Also point to it wherever a signed-in person
+could be stuck with the wrong address: the login page (a `data-open-login`
+link to the dialog) and login errors (`/auth/change`, which works without a
+session). Signing in again does not help them, because delegate goes
+straight through with the remembered Grant.
 
 Shareable delegate fields are `display_name`, `given_name`,
 `family_name`, `email`, `phone`, and `attributes`. `email_type` is a
@@ -95,7 +101,7 @@ Log out starts `POST /auth/logout` and, when the visitor ticks "Also sign
 out of Delegate in this browser", the `/identity/logout/bridge` popup in the
 same click.
 
-## Sequence (redirect, `/login`)
+## Sequence (redirect fallback, `/login`)
 
 ```mermaid
 sequenceDiagram
@@ -120,7 +126,7 @@ sequenceDiagram
   (JSON answer, same session cookie). The dialog then offers VIP / Admin
   (`POST /auth/role` with `Accept: application/json`), Switch email, and
   Log out.
-- `@engine9/id` on `/login`: Identity Token popup (`requestIdentity`
+- `@engine9/id` fallback on `/login`: Identity Token popup (`requestIdentity`
   with required `display_name` and `email`), Level 0 probe (no fields),
   then `GET /auth/delegate?delegate_token=`.
 - Server: JWT verify, person pipeline, HttpOnly `session` cookie,

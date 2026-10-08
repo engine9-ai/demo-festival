@@ -217,10 +217,13 @@ site's routes:
 - `onLogout()` — `POST /auth/logout` (`keepalive`), started in the same click
   as the Delegate logout popup
 
+In-page log in links carry `data-open-login`; the layout opens the widget's
+dialog for them, and their `href="/login"` is the no-JavaScript fallback.
+
 Underneath, every login is `GET /identity/authorize` or the
-`/identity/bridge` popup (JWT, public JWKS). `/login` keeps the redirect
-flow and a popup (`requestIdentity`) that lands on the `GET /auth/delegate`
-callback. Registration uses the seeded `e9publickey_` (scope `public`) on
+`/identity/bridge` popup (JWT, public JWKS). `/login` leads with the same
+Login button, then keeps the redirect flow and a popup (`requestIdentity`)
+as fallbacks that land on the `GET /auth/delegate` callback. Registration uses the seeded `e9publickey_` (scope `public`) on
 `POST /people`.
 
 `auth.identityUrl({ returnTo, minLevel, fields: ["display_name", "email"], responseMode: "query" })`

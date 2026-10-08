@@ -79,7 +79,8 @@ const navLinks = [
         Demo site. Authentication is handled by the shared
         <strong>delegate</strong> service; access levels are this site's own
         segments.
-        <a href="/login">Login options and Delegate debugging</a>.
+        Log in with the <strong>Login</strong> button at the top of every page.
+        <a href="/login">Login without popups, and Delegate debugging</a>.
       </p>
     </footer>
   </body>
@@ -105,7 +106,7 @@ const navLinks = [
       return body;
     }
 
-    loginWidget({
+    const widget = loginWidget({
       ...config,
       target: slot,
       storage: "session",
@@ -132,6 +133,15 @@ const navLinks = [
         await fetch("/auth/logout", { method: "POST", keepalive: true });
         window.location.assign("/");
       },
+    });
+
+    // In-page "log in" links open the same dialog. Their href (/login) is the
+    // no-JavaScript fallback.
+    document.addEventListener("click", (event) => {
+      const opener = event.target instanceof Element ? event.target.closest("[data-open-login]") : null;
+      if (!opener) return;
+      event.preventDefault();
+      widget.open();
     });
   }
 </script>
