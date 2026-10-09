@@ -19,9 +19,6 @@ const delegateBase = env.DELEGATE_URL || "https://delegate.engine9.ai";
 const loginUrl = loginIdentityUrl(Astro.url.origin);
 /** "Change your Delegate information": the same request with prompt=select. */
 const changeUrl = "/auth/change";
-/** Delegate's page for the person's email addresses and connected sites. */
-const delegateUserUrl = new URL("/user", delegateBase).toString();
-
 /** A failed login that came from the person's identity, not this site's configuration. */
 const showChangeOnError = Boolean(errorReason || errorMessage) && errorKind !== "configuration";
 
@@ -207,30 +204,22 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
         </article>
 
         <article class="card option">
-          <h2>4. Delegate’s own pages (debug)</h2>
+          <h2>4. Delegate’s own sign-in (debug)</h2>
           <p class="tag">Delegate only · no festival session</p>
           <p>
             <strong>Sign in to Delegate only</strong> opens Delegate’s own
             <code>/login</code> with no <code>return_to</code> back to this
             site. It signs you in to Delegate (UNID ↔ Google) but does
             <em>not</em> log you in here.
-            <strong>Your Delegate details</strong> opens Delegate’s
-            <code>/user</code>: your email addresses and the sites you share
-            with.
           </p>
           <p class="outcome">
-            <strong>You’ll see:</strong> Delegate’s pages in a new tab. This
+            <strong>You’ll see:</strong> Delegate’s sign-in in a new tab. This
             demo’s header stays logged out until you use its Login button.
             Option 3’s popup bridge will then report <code>loggedIn: true</code>.
           </p>
-          <div class="btn-row">
-            <a class="btn btn-ghost option-ghost" href={directDelegateLoginUrl} target="_blank" rel="noreferrer">
-              Sign in to Delegate only
-            </a>
-            <a class="btn btn-ghost option-ghost" href={delegateUserUrl} target="_blank" rel="noreferrer">
-              Your Delegate details
-            </a>
-          </div>
+          <a class="btn btn-ghost option-ghost" href={directDelegateLoginUrl} target="_blank" rel="noreferrer">
+            Sign in to Delegate only
+          </a>
         </article>
       </div>
 
