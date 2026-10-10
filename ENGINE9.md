@@ -34,9 +34,9 @@ npm install @engine9/core @engine9/id @engine9/schemas
 `package.json` depends on the published releases:
 
 ```json
-"@engine9/core": "^1.4.3",
-"@engine9/id": "^1.4.1",
-"@engine9/schemas": "^1.8.1"
+"@engine9/core": "^1.9.2",
+"@engine9/id": "^1.9.2",
+"@engine9/schemas": "^1.9.1"
 ```
 
 `@engine9/input-tools` is core's dependency (2.5.1). There is no `overrides`
