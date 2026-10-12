@@ -58,17 +58,17 @@ let standardPlugins: Promise<void> | undefined;
  * need the standard schema plugins installed.
  */
 export function ensureStandardPlugins(): Promise<void> {
-  if (!standardPlugins) {
-    const worker = createPersonWorker();
-    standardPlugins = worker
-      .installStandard()
-      .then(() => undefined)
-      .catch((err: unknown) => {
-        standardPlugins = undefined;
-        throw err;
-      });
-  }
-  return standardPlugins;
+  if (standardPlugins) return standardPlugins;
+  const worker = createPersonWorker();
+  const pending = worker
+    .installStandard()
+    .then(() => undefined)
+    .catch((err: unknown) => {
+      standardPlugins = undefined;
+      throw err;
+    });
+  standardPlugins = pending;
+  return pending;
 }
 
 /**
@@ -99,13 +99,22 @@ export const LOGIN_FIELDS = ["display_name", "email"];
  * Delegate authorize URL for this site's login. Lands on `/auth/delegate`.
  * `prompt: "select"` is "Change your Delegate information": delegate always
  * shows its share page, so the person can pick another email address.
+ * `again` marks a login restarted after an unrecognized `state`, so a browser
+ * that drops the state cookie stops after one retry. Use `startLogin()` in
+ * `session.ts`, which also sets that cookie.
  */
-export function loginIdentityUrl(origin: string, opts: { prompt?: "select" } = {}) {
+export function loginIdentityUrl(
+  origin: string,
+  opts: { prompt?: "select"; state?: string; again?: boolean } = {},
+) {
+  const returnTo = new URL("/auth/delegate", origin);
+  if (opts.again) returnTo.searchParams.set("again", "1");
   return delegateAuth().identityUrl({
-    returnTo: new URL("/auth/delegate", origin).toString(),
+    returnTo: returnTo.toString(),
     minLevel: 1,
     fields: LOGIN_FIELDS,
     prompt: opts.prompt,
+    state: opts.state,
     responseMode: "query",
   });
 }

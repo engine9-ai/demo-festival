@@ -34,8 +34,8 @@ npm install @engine9/core @engine9/id @engine9/schemas
 `package.json` depends on the published releases:
 
 ```json
-"@engine9/core": "^1.9.2",
-"@engine9/id": "^1.9.2",
+"@engine9/core": "^1.9.3",
+"@engine9/id": "^1.9.5",
 "@engine9/schemas": "^1.9.1"
 ```
 
@@ -181,7 +181,7 @@ in `src/lib/engine9.ts` to the R2 sink.
 
 ### Stage 8 — Delegate authentication
 
-Login is provided by the shared **delegate** deployment via
+Login is provided by **delegate**, engine9's common sign-in, via
 `@engine9/core/auth/delegate` (`createDelegateAuth`). This site only wires
 config and endpoints:
 
@@ -191,7 +191,11 @@ config and endpoints:
 - `src/layouts/Layout.astro` — the `@engine9/id` login widget in the
   header, the main way visitors log in, switch email, pick a role, and log
   out (see Stage 9)
-- `GET /auth/delegate` — callback: Identity Token (`?delegate_token=`)
+- `GET /auth/login` — redirect login: a `login_state` cookie, then Delegate
+  with that `state`
+- `GET /auth/delegate` — callback: Identity Token (`?delegate_token=`).
+  A `state` this browser did not start means "sign in again", not
+  "expired": it restarts the login once
 - `POST /auth/delegate` — the same login for the widget (JSON)
 - `POST /auth/role` + `/choose-role` — demo-only first-login role picker
 - `src/middleware.ts` — gates `/vip` and `/admin` from the session
@@ -222,12 +226,14 @@ dialog for them, and their `href="/login"` is the no-JavaScript fallback.
 
 Underneath, every login is `GET /identity/authorize` or the
 `/identity/bridge` popup (JWT, public JWKS). `/login` leads with the same
-Login button, then keeps the redirect flow and a popup (`requestIdentity`)
-as fallbacks that land on the `GET /auth/delegate` callback. Registration uses the seeded `e9publickey_` (scope `public`) on
+Login button, then keeps the redirect flow (`GET /auth/login`, landing on
+`GET /auth/delegate`) and a popup (`requestIdentity`, then
+`POST /auth/delegate`) as fallbacks. Registration uses the seeded `e9publickey_` (scope `public`) on
 `POST /people`.
 
-`auth.identityUrl({ returnTo, minLevel, fields: ["display_name", "email"], responseMode: "query" })`
-builds the authorize URL. Those two fields are required. The login sends
+`auth.identityUrl({ returnTo, minLevel, fields: ["display_name", "email"], state, responseMode: "query" })`
+builds the authorize URL (`startLogin()` in `src/lib/session.ts` sets the
+`state` cookie). Those two fields are required. The login sends
 no optional fields. The widget's **Switch email** and `GET /auth/change`
 send the same request with `prompt: "select"` ("Change your Delegate
 information"), so a signed-in person can pick another email address. See

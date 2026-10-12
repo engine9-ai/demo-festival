@@ -7,7 +7,7 @@ import {
   type CredentialLevel,
 } from "@engine9/core/auth/delegate";
 import { meetsRequiredAuth } from "@engine9/core/auth/policy";
-import { delegateAuth } from "./engine9";
+import { delegateAuth, loginIdentityUrl } from "./engine9";
 import {
   ADMIN_SEGMENT_ID,
   VIP_SEGMENT_ID,
@@ -53,6 +53,40 @@ export function clearSession(cookies: AstroCookies): void {
   cookies.delete(COOKIE_NAME, { path: "/" });
   // Drop the old demo-specific name if present.
   cookies.delete("festival_session", { path: "/" });
+}
+
+/**
+ * The `state` of the redirect login this browser started. `/auth/delegate`
+ * finishes only the request whose `state` matches; anything else answers a
+ * request this browser does not have (another tab, an older attempt, an email
+ * link opened in a different browser) and starts the login again.
+ */
+const LOGIN_STATE_COOKIE = "login_state";
+const LOGIN_STATE_PATH = "/auth/delegate";
+const LOGIN_STATE_TTL_SECONDS = 60 * 30;
+
+/** Remember a fresh `state` and return the Delegate authorize URL that carries it. */
+export function startLogin(
+  cookies: AstroCookies,
+  origin: string,
+  opts: { prompt?: "select"; again?: boolean } = {},
+): string {
+  const state = crypto.randomUUID();
+  cookies.set(LOGIN_STATE_COOKIE, state, {
+    path: LOGIN_STATE_PATH,
+    httpOnly: true,
+    sameSite: "lax",
+    secure: import.meta.env.PROD,
+    maxAge: LOGIN_STATE_TTL_SECONDS,
+  });
+  return loginIdentityUrl(origin, { ...opts, state });
+}
+
+/** The pending `state`, if any. Clears it: each `state` finishes one login. */
+export function takeLoginState(cookies: AstroCookies): string | null {
+  const state = cookies.get(LOGIN_STATE_COOKIE)?.value || null;
+  if (state) cookies.delete(LOGIN_STATE_COOKIE, { path: LOGIN_STATE_PATH });
+  return state;
 }
 
 /** Prefer the Identity Token `level`; infer from auth when an older session has none. */

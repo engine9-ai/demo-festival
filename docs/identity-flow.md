@@ -108,10 +108,13 @@ sequenceDiagram
   participant B as Browser
   participant D as delegate
   participant S as Demo Worker
-  B->>D: GET /identity/authorize?domain&min_level=1&fields=display_name,email
+  B->>S: GET /auth/login
+  S-->>B: Set-Cookie login_state, 302 to Delegate
+  B->>D: GET /identity/authorize?domain&min_level=1&fields=display_name,email&state
   D-->>B: share page, or silent token
-  D-->>B: 302 return_to?delegate_token=JWT
-  B->>S: GET /auth/delegate?delegate_token
+  D-->>B: 302 return_to?delegate_token=JWT&state
+  B->>S: GET /auth/delegate?delegate_token&state
+  S->>S: state matches login_state (else restart once)
   S->>D: GET /.well-known/jwks.json
   S->>S: verify JWT, unid to person_id, mint Core Session
   S-->>B: Set-Cookie session
@@ -127,8 +130,8 @@ sequenceDiagram
   (`POST /auth/role` with `Accept: application/json`), Switch email, and
   Log out.
 - `@engine9/id` fallback on `/login`: Identity Token popup (`requestIdentity`
-  with required `display_name` and `email`), Level 0 probe (no fields),
-  then `GET /auth/delegate?delegate_token=`.
+  with required `display_name` and `email`), then `POST /auth/delegate`;
+  and a Level 0 probe (no fields).
 - Server: JWT verify, person pipeline, HttpOnly `session` cookie,
   middleware for `/vip` and `/admin` (also checks `requiredAuth.minLevel`).
 - Level 1 register: `/auth/register` → `POST /api/people` with
@@ -137,6 +140,21 @@ sequenceDiagram
   server-only for admin-style API calls.
 
 Browser-only on-ramp (no core): [`demo-id`](../../demo-id).
+
+## A return for another request
+
+Every login carries a `state`. The widget and the popup keep it in
+`@engine9/id`; the redirect login keeps it in the `login_state` cookie. A
+return whose `state` this browser did not start is not a failure and
+nothing expired. It comes from another tab, an older attempt, or a sign-in
+email opened in a different browser or app. The site starts the login again:
+
+- The widget and popup (`state_mismatch` in `@engine9/id`) leave the page
+  logged out with no error. Login works on the next click.
+- `GET /auth/delegate` redirects to `/auth/login?again=1`. Delegate answers
+  it silently when the person is still signed in there. If the `state`
+  still does not match (the browser drops the cookie), `/login` asks them to
+  allow cookies (`state_mismatch`) instead of looping.
 
 ## When sign-in fails after Delegate
 

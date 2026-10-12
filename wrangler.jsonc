@@ -23,7 +23,7 @@
   "observability": {
     "enabled": true,
   },
-  // Delegate — the shared identity service. This site verifies Identity Tokens
+  // Delegate — engine9's common sign-in. This site verifies Identity Tokens
   // via JWKS and signs its own session cookie with SESSION_SECRET.
   "vars": {
     "DELEGATE_URL": "https://delegate.engine9.ai",

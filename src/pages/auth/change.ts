@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { loginIdentityUrl } from "../../lib/engine9";
+import { startLogin } from "../../lib/session";
 
 /**
  * "Change your Delegate information". Repeats the login request with
@@ -8,5 +8,5 @@ import { loginIdentityUrl } from "../../lib/engine9";
  * use a different Google account. Delegate returns a new Identity Token to
  * `/auth/delegate`, which replaces this site's session.
  */
-export const GET: APIRoute = ({ url, redirect }) =>
-  redirect(loginIdentityUrl(url.origin, { prompt: "select" }), 302);
+export const GET: APIRoute = ({ url, cookies, redirect }) =>
+  redirect(startLogin(cookies, url.origin, { prompt: "select" }), 302);

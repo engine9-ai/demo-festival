@@ -23,8 +23,8 @@ npm install
 npm run dev
 ```
 
-Dependencies are the published npm releases: `@engine9/core` ^1.4.3,
-`@engine9/id` ^1.4.1, and `@engine9/schemas` ^1.8.1. `@engine9/input-tools`
+Dependencies are the published npm releases: `@engine9/core` ^1.9.3,
+`@engine9/id` ^1.9.5, and `@engine9/schemas` ^1.9.1. `@engine9/input-tools`
 comes in with core (2.5.1).
 
 Open **http://localhost:3000** (or **http://localhost:3001** /
@@ -49,7 +49,7 @@ to the seed state.
 
 ### Auth endpoints
 
-Login is provided by the shared **delegate** service via `@engine9/core`.
+Login is provided by **delegate**, engine9's common sign-in, via `@engine9/core`.
 
 Visitors interact with Delegate through the
 [`@engine9/id` login widget](../id/README.md#the-login-widget) in the header
@@ -67,7 +67,8 @@ This site only wires config and HTTP endpoints:
 | Endpoint | Purpose |
 | --- | --- |
 | `GET /login` | The Login button again, then the fallback: Identity Token (`/identity/authorize`) by redirect or popup. Required fields `display_name`, `email`; no optional fields |
-| `GET /auth/delegate` | Callback: Identity Token (`?delegate_token=`) |
+| `GET /auth/login` | Redirect login: sets a `login_state` cookie and sends the browser to Delegate with that `state` |
+| `GET /auth/delegate` | Callback: Identity Token (`?delegate_token=`). Finishes only the `state` this browser started. Any other `state` (another tab, an older attempt, an email link opened in a different browser) restarts the login once, which is silent when the person is still signed in to Delegate. It never says "expired" |
 | `POST /auth/delegate` | Same login for the header's login widget: JSON `{ delegate_token }` in, `{ user, needsRole }` out |
 | `GET /auth/change` | "Change your Delegate information": the widget's Switch email as a redirect (`prompt=select`), so the person can pick another email address |
 | `POST /auth/role` | Demo-only: grants VIP or Admin after first login. Answers JSON `{ redirect }` when asked with `Accept: application/json` |

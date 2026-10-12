@@ -6,7 +6,14 @@ import {
 } from "@engine9/core/auth/delegate";
 import type { DelegateLoginFailure } from "@engine9/core/auth/delegate";
 import { delegateAuth, ensureStandardPlugins } from "../../lib/engine9";
-import { setSession, needsRole, isAdmin, widgetUser, type Session } from "../../lib/session";
+import {
+  setSession,
+  needsRole,
+  isAdmin,
+  takeLoginState,
+  widgetUser,
+  type Session,
+} from "../../lib/session";
 
 /** `error=` codes Delegate's /identity/authorize sends back instead of a token. */
 const DELEGATE_AUTHORIZE_ERRORS: Record<string, { kind: "auth" | "configuration"; message: string }> = {
@@ -48,12 +55,36 @@ function loginFailureRedirect(failure: DelegateLoginFailure) {
  * Identity Token callback. Lands here from `/identity/authorize` with
  * `?delegate_token=` (`response_mode=query`).
  *
+ * Only the request this browser started (its `state` cookie) finishes here.
+ * Anything else is "sign in again", never "expired": the login restarts, and
+ * Delegate answers it silently when the person is still signed in there.
+ *
  * Core verifies the JWT, runs person dedupe, and returns a signed session.
  */
 export const GET: APIRoute = async ({ url, cookies, redirect }) => {
   const identityToken = url.searchParams.get("delegate_token");
   const delegateError = url.searchParams.get("error");
   const returnTo = new URL("/auth/delegate", url.origin).toString();
+
+  const expectedState = takeLoginState(cookies);
+  const receivedState = url.searchParams.get("state");
+  if (!expectedState || receivedState !== expectedState) {
+    const retried = url.searchParams.get("again") === "1";
+    console.warn("delegate callback for a request this browser does not have", {
+      pending: Boolean(expectedState),
+      state: Boolean(receivedState),
+      retried,
+    });
+    if (!retried) return redirect("/auth/login?again=1", 303);
+    const params = new URLSearchParams({
+      error: "state_mismatch",
+      message:
+        "This browser did not keep the cookie this site sets when you log in, so the login could not finish. Allow cookies for this site, then log in again.",
+      kind: "auth",
+      detail: "The login_state cookie was missing or different after one automatic retry.",
+    });
+    return redirect(`/login?${params}`, 303);
+  }
 
   if (!identityToken && delegateError) {
     const known = DELEGATE_AUTHORIZE_ERRORS[delegateError];
@@ -80,7 +111,7 @@ export const GET: APIRoute = async ({ url, cookies, redirect }) => {
     await ensureStandardPlugins();
     ({ session } = await delegateAuth().login(identityToken, {
       returnTo,
-      domain: domainFromUrl(url.origin),
+      domain: domainFromUrl(url.origin) ?? undefined,
     }));
   } catch (e) {
     const failure = normalizeDelegateLoginFailure(e);

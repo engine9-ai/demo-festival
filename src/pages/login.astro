@@ -2,7 +2,7 @@
 import { env } from "cloudflare:workers";
 import Layout from "../layouts/Layout.astro";
 import { domainFromUrl } from "@engine9/core/auth/delegate";
-import { LOGIN_FIELDS, loginIdentityUrl } from "../lib/engine9";
+import { LOGIN_FIELDS } from "../lib/engine9";
 import { primaryRole } from "../lib/session";
 
 const required = Astro.url.searchParams.get("required");
@@ -15,15 +15,16 @@ const session = Astro.locals.session;
 const returnTo = new URL("/auth/delegate", Astro.url.origin).toString();
 const delegateBase = env.DELEGATE_URL || "https://delegate.engine9.ai";
 
-/** Log in: /identity/authorize, query mode for this SSR callback. */
-const loginUrl = loginIdentityUrl(Astro.url.origin);
+/** Log in: sets a `state` cookie, then /identity/authorize in query mode for this SSR callback. */
+const loginUrl = "/auth/login";
 /** "Change your Delegate information": the same request with prompt=select. */
 const changeUrl = "/auth/change";
 /** A failed login that came from the person's identity, not this site's configuration. */
 const showChangeOnError = Boolean(errorReason || errorMessage) && errorKind !== "configuration";
 
 const identityBridgeUrl = new URL("/identity/bridge", delegateBase);
-identityBridgeUrl.searchParams.set("domain", domainFromUrl(Astro.url.origin));
+const domain = domainFromUrl(Astro.url.origin);
+if (domain) identityBridgeUrl.searchParams.set("domain", domain);
 identityBridgeUrl.searchParams.set("return_to", returnTo);
 identityBridgeUrl.searchParams.set("min_level", "0");
 
@@ -41,7 +42,7 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
   <div class="login-wrap" data-delegate-url={delegateBase}>
     <h1>Log in</h1>
     <p class="lede">
-      This site uses the shared <strong>delegate</strong> service to log in.
+      This site logs in with <strong>delegate</strong>, engine9's common sign-in.
       The <strong>Login</strong> button at the top of every page (option 1)
       is how a real site logs people in. Option 2 is the fallback for
       browsers without JavaScript or popups. Options 3 and 4 are debugging
@@ -235,7 +236,7 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
   </div>
 </Layout>
 
-<script define:vars={{ delegateBase }}>
+<script is:inline define:vars={{ delegateBase }}>
   const TAG = "[festival login]";
   const identityResult = document.getElementById("identity-result");
 
@@ -364,7 +365,18 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
     return { message: String(err) };
   }
 
+  /** A popup answer for another request. "Log in again", never an error or "expired". */
+  function isStateMismatch(err: unknown) {
+    const e = err as { code?: string; details?: { step?: string } } | null;
+    return e?.code === "state_mismatch" || (e?.code === "invalid_request" && e?.details?.step === "state");
+  }
+
   function fail(label: string, err: unknown) {
+    if (isStateMismatch(err)) {
+      console.info(TAG, "That login answered an earlier attempt. Log in again.");
+      show("// that login answered an earlier attempt", { next: "Log in again" });
+      return;
+    }
     const report = errorReport(err);
     console.error(TAG, label, report, err);
     show(`// ${label}`, report);
@@ -400,8 +412,23 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
       show("// @engine9/id popup (token missing from sessionStorage)", identity);
       return;
     }
-    console.info(TAG, "Popup login: sending the token to /auth/delegate.");
-    window.location.assign(`/auth/delegate?delegate_token=${encodeURIComponent(token)}`);
+    // @engine9/id already matched the popup's state; the server takes the token as JSON.
+    console.info(TAG, "Popup login: sending the token to POST /auth/delegate.");
+    const res = await fetch("/auth/delegate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ delegate_token: token }),
+    });
+    const body = (await res.json().catch(() => ({}))) as {
+      user?: { role?: string | null };
+      needsRole?: boolean;
+      message?: string;
+    };
+    if (!res.ok) {
+      fail("Popup login: this site could not finish the login", body);
+      return;
+    }
+    window.location.assign(body.needsRole ? "/choose-role" : body.user?.role === "admin" ? "/admin" : "/vip");
   });
 
   document.getElementById("identity-probe")?.addEventListener("click", async () => {

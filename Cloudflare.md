@@ -101,7 +101,7 @@ The sibling `delegate` service uses this exact pattern for
 
 ## Production auth note
 
-Authentication is already wired through the shared **delegate** service
+Authentication is already wired through **delegate**, engine9's common sign-in
 (`delegate.engine9.ai`). The preferred path is an Identity Token (JWT)
 from `GET /identity/authorize`, verified via JWKS in
 `@engine9/core/auth/delegate`. Login requests required fields
