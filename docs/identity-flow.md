@@ -55,6 +55,13 @@ in (popup)** on `/login`, are the same request. The widget and the popup
 button use an `@engine9/id` popup; **Log in** takes the page to delegate and
 back. All go straight through when the Grant already covers the request.
 
+All three send the festival's colors (`src/lib/brand.ts`), so delegate's
+sign-in page matches the site. The popups send `google: "brand"`: delegate
+must keep its Google button there (a browser blocks a window opened without
+a click), so it reads **Continue with Google** in festival purple. The
+redirect **Log in** sends `google: "skip"`, so a signed-out visitor goes
+from this site's button straight to Google.
+
 **Switch email** in the widget (and its redirect fallback **Change your
 Delegate information**, `GET /auth/change`, on `/login`) sends the same request with
 `prompt=select`. Delegate always

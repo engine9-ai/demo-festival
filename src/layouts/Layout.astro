@@ -2,6 +2,7 @@
 import { env } from "cloudflare:workers";
 import { canAccessVip, isAdmin, widgetUser } from "../lib/session";
 import { LOGIN_FIELDS } from "../lib/engine9";
+import { POPUP_SIGN_IN_BRAND } from "../lib/brand";
 import { ADMIN_SEGMENT_ID, ROLE_REGISTRY, VIP_SEGMENT_ID } from "../lib/roles";
 
 interface Props {
@@ -16,6 +17,7 @@ const isAdminRoute = path.startsWith("/admin");
 const widget = {
   delegateUrl: env.DELEGATE_URL || "https://delegate.engine9.ai",
   fields: LOGIN_FIELDS,
+  brand: POPUP_SIGN_IN_BRAND,
   user: widgetUser(session),
   roles: [
     {

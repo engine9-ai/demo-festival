@@ -108,7 +108,10 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
           </p>
           <p class="outcome">
             <strong>You’ll see:</strong> delegate’s sign-in if you are not
-            signed in there, then its share page the first time. The share
+            signed in there, in this site’s colors with a
+            <strong>Continue with Google</strong> button
+            (<code>brand</code> in <code>src/lib/brand.ts</code>), then its
+            share page the first time. The share
             page lists your email addresses so you can pick one. After that,
             delegate remembers your choice (a Grant) and logs you straight in.
             Then the dialog’s Role section. VIP requires Level 1; Admin
@@ -134,7 +137,9 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
             <code>/identity/authorize</code> with <code>min_level=1</code>
             and required fields <code>display_name</code> and
             <code>email</code>. <strong>Log in</strong> takes this page to
-            delegate and back. <strong>Log in (popup)</strong> calls
+            delegate and back; it sends <code>brand_google=skip</code>, so a
+            signed-out visitor goes straight to Google without a second
+            button. <strong>Log in (popup)</strong> calls
             <code>requestIdentity()</code> from <code>@engine9/id</code>
             directly. <strong>Change your Delegate information</strong> is
             the widget’s Switch email as a redirect
@@ -339,6 +344,7 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
 
 <script>
   import { createEngine9Id } from "@engine9/id";
+  import { POPUP_SIGN_IN_BRAND } from "../lib/brand";
 
   const wrap = document.querySelector(".login-wrap");
   const delegateUrl =
@@ -347,7 +353,7 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
       : "https://delegate.engine9.ai";
   const TAG = "[festival login]";
   // A variable, not a literal, so @engine9/id releases without `debug` still accept it.
-  const idConfig = { delegateUrl, storage: "session" as const, debug: true };
+  const idConfig = { delegateUrl, storage: "session" as const, debug: true, brand: POPUP_SIGN_IN_BRAND };
   const id = createEngine9Id(idConfig);
   const identityResult = document.getElementById("identity-result");
 

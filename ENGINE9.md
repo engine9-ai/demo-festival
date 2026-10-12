@@ -231,9 +231,11 @@ Login button, then keeps the redirect flow (`GET /auth/login`, landing on
 `POST /auth/delegate`) as fallbacks. Registration uses the seeded `e9publickey_` (scope `public`) on
 `POST /people`.
 
-`auth.identityUrl({ returnTo, minLevel, fields: ["display_name", "email"], state, responseMode: "query" })`
+`auth.identityUrl({ returnTo, minLevel, fields: ["display_name", "email"], brand, state, responseMode: "query" })`
 builds the authorize URL (`startLogin()` in `src/lib/session.ts` sets the
-`state` cookie). Those two fields are required. The login sends
+`state` cookie). `brand` is `REDIRECT_SIGN_IN_BRAND` from
+`src/lib/brand.ts`: the site's colors, and `google: "skip"`, so delegate
+goes straight to Google. Those two fields are required. The login sends
 no optional fields. The widget's **Switch email** and `GET /auth/change`
 send the same request with `prompt: "select"` ("Change your Delegate
 information"), so a signed-in person can pick another email address. See

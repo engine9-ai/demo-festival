@@ -6,6 +6,7 @@ import { SqlApiKeyStore } from "@engine9/core/auth";
 import { createDelegateAuth } from "@engine9/core/auth/delegate";
 import { BatchLogger } from "@engine9/core/logging";
 import { createApi } from "@engine9/core/api";
+import { REDIRECT_SIGN_IN_BRAND } from "./brand";
 
 export {
   ADMIN_SEGMENT_ID,
@@ -114,6 +115,7 @@ export function loginIdentityUrl(
     minLevel: 1,
     fields: LOGIN_FIELDS,
     prompt: opts.prompt,
+    brand: REDIRECT_SIGN_IN_BRAND,
     state: opts.state,
     responseMode: "query",
   });
