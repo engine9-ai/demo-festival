@@ -34,8 +34,8 @@ npm install @engine9/core @engine9/id @engine9/schemas
 `package.json` depends on the published releases:
 
 ```json
-"@engine9/core": "^1.9.3",
-"@engine9/id": "^1.9.5",
+"@engine9/core": "^1.9.5",
+"@engine9/id": "^1.9.7",
 "@engine9/schemas": "^1.9.1"
 ```
 

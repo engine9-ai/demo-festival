@@ -23,8 +23,8 @@ npm install
 npm run dev
 ```
 
-Dependencies are the published npm releases: `@engine9/core` ^1.9.3,
-`@engine9/id` ^1.9.5, and `@engine9/schemas` ^1.9.1. `@engine9/input-tools`
+Dependencies are the published npm releases: `@engine9/core` ^1.9.5,
+`@engine9/id` ^1.9.7, and `@engine9/schemas` ^1.9.1. `@engine9/input-tools`
 comes in with core (2.5.1).
 
 Open **http://localhost:3000** (or **http://localhost:3001** /
