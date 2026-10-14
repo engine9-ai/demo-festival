@@ -23,9 +23,9 @@ npm install
 npm run dev
 ```
 
-Dependencies are the published npm releases: `@engine9/core` ^1.9.5,
-`@engine9/id` ^1.9.7, and `@engine9/schemas` ^1.9.1. `@engine9/input-tools`
-comes in with core (2.5.1).
+Dependencies are the published npm releases: `@engine9/core` ^1.10.2,
+`@engine9/id` ^1.9.7, and `@engine9/schemas` ^1.10.1. `@engine9/input-tools`
+comes in with core.
 
 Open **http://localhost:3000** (or **http://localhost:3001** /
 **http://localhost:3002** if 3000 is taken). Set `PORT` in `.env` to pin a

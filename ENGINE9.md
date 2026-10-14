@@ -34,13 +34,13 @@ npm install @engine9/core @engine9/id @engine9/schemas
 `package.json` depends on the published releases:
 
 ```json
-"@engine9/core": "^1.9.5",
+"@engine9/core": "^1.10.2",
 "@engine9/id": "^1.9.7",
-"@engine9/schemas": "^1.9.1"
+"@engine9/schemas": "^1.10.1"
 ```
 
-`@engine9/input-tools` is core's dependency (2.5.1). There is no `overrides`
-block. Core 1.9.1 peers `@engine9/schemas` `^1.9.0`.
+`@engine9/input-tools` is core's dependency. There is no `overrides`
+block. Core 1.10 peers `@engine9/schemas` `^1.10.1`.
 
 `package.json` `engine9.pluginPackages` is `["@engine9/schemas"]`.
 That is the default when the key is omitted. Cloudflare has no filesystem,
@@ -60,12 +60,15 @@ at `@engine9/core/cloudflare/input-tools-shim`, and `knex`, `mysql2`,
 `@engine9/core/cloudflare/unavailable-module`. `i18n-iso-countries`
 resolves to its browser build (`index.js`).
 
-To ship a new `@engine9/schemas` release, upgrade that package only and redeploy.
-Leave the `@engine9/core` version as it is:
+A deploy changes code only. After a new `@engine9/core` or
+`@engine9/schemas` reaches the Worker, run `e9core upgrade` against each
+database (see `@engine9/core` `docs/upgrading.md`):
 
 ```bash
-npm install @engine9/schemas@latest
+npm install @engine9/core@^1.10.2 @engine9/schemas@^1.10.1
 npm run deploy
+npx e9core upgrade --url https://festival.engine9.ai --dry-run
+npx e9core upgrade --url https://festival.engine9.ai
 ```
 
 `npm run deploy` is `e9core build-plugins`, then `astro build`, then

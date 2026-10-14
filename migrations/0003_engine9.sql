@@ -395,7 +395,7 @@ VALUES (
   'f31c2c8f-0296-4dd8-9b3c-2b0e4f4dbe1a',
   'festival-demo-website',
   'eb6638ecc09eb068be0c6abccde309c25f40ab0fc6bf66da94489ad67c4aa9e1',
-  '["people:write","tables:write","data:read"]',
+  '["admin","people:write","tables:write","data:read"]',
   1
 );
 

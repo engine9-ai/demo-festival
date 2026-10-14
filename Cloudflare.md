@@ -64,12 +64,13 @@ contains the schema plugins. Wrangler uploads that Worker (entry point
 `@astrojs/cloudflare/entrypoints/server`) plus the static assets in
 `dist/`, and binds the D1 database as `env.DB`.
 
-A new `@engine9/schemas` version is an upgrade of that package, then the same
-deploy. Leave `@engine9/core` on its current version:
+A new `@engine9/core` or `@engine9/schemas` version is an install, deploy,
+then `e9core upgrade` (see `@engine9/core` `docs/upgrading.md`):
 
 ```bash
-npm install @engine9/schemas@latest
+npm install @engine9/core@latest @engine9/schemas@latest
 npm run deploy
+npx e9core upgrade --url https://festival.engine9.ai
 ```
 
 ## 4. (Optional) Custom domain

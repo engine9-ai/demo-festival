@@ -8,17 +8,18 @@ const session = Astro.locals.session!;
 const db = getDB();
 
 // All per-person data is keyed by the integer person_id (engine9 person.id).
-// The person/person_email/person_address tables are the standard Engine9
-// tables from @engine9/schemas, managed by @engine9/core.
+// person / person_name / person_email / person_address are the standard
+// Engine9 tables from @engine9/schemas, managed by @engine9/core.
 const person = await db
   .prepare(
     `SELECT p.id,
-            p.given_name,
-            p.family_name,
+            n.given_name,
+            n.family_name,
             pe.email,
             pe.email_type,
             pa.street_1
      FROM person p
+     LEFT JOIN person_name n ON n.person_id = p.id
      LEFT JOIN person_email pe ON pe.person_id = p.id
      LEFT JOIN person_address pa ON pa.person_id = p.id
      WHERE p.id = ?`
