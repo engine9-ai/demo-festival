@@ -2,7 +2,7 @@
   "name": "solstice-wave-festival",
   "description": "Demo festival site: Astro + SQLite (Cloudflare D1) with VIP/Admin gating via a pretend delegate login",
   "type": "module",
-  "version": "1.9.4",
+  "version": "1.11.0",
   "private": true,
   "license": "MIT",
   "scripts": {
@@ -24,7 +24,7 @@
     "@engine9/id": "^1.11.0",
     "@engine9/schemas": "^1.10.1",
     "astro": "^7.0.6",
-    "wrangler": "^4.107.0"
+    "wrangler": "^4.151.0"
   },
   "engine9": {
     "pluginPackages": [
