@@ -100,11 +100,22 @@ const navLinks = [
   if (slot) {
     const config = JSON.parse(slot.dataset.widget || "{}");
 
-    type ServerAnswer = { message?: string; user?: LoginWidgetUser; redirect?: string };
+    type ServerAnswer = {
+      message?: string;
+      detail?: string;
+      user?: LoginWidgetUser;
+      redirect?: string;
+    };
 
     async function readJson(res: Response): Promise<ServerAnswer> {
       const body = (await res.json().catch(() => ({}))) as ServerAnswer;
-      if (!res.ok) throw new Error(body.message || `The server answered ${res.status}.`);
+      if (!res.ok) {
+        const message = body.message || `The server answered ${res.status}.`;
+        // The server's detail is the real cause (the message is the friendly
+        // summary), so show both.
+        const detail = body.detail && body.detail !== message ? body.detail : "";
+        throw new Error(detail ? `${message} Detail: ${detail}` : message);
+      }
       return body;
     }
 

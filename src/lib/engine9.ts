@@ -62,7 +62,7 @@ export function ensureStandardPlugins(): Promise<void> {
   if (standardPlugins) return standardPlugins;
   const worker = createPersonWorker();
   const pending = worker
-    .installStandard()
+    .installDefaultPlugins()
     .then(() => undefined)
     .catch((err: unknown) => {
       standardPlugins = undefined;

@@ -141,7 +141,7 @@ Two small files:
   touching endpoints), `BatchLogger`, and `createApi` with this site's plugin
   id, upsertable tables, and named reads (`vip-performances` gated by the VIP
   segment, `lineup` public). The first people write or login calls
-  `installStandard()` so the published person schema plugins (the inbound
+  `installDefaultPlugins()` so the published person schema plugins (the inbound
   pipeline) are installed. Core runs only plugins compiled into the build.
 - `src/pages/api/[...path].ts` — Astro catch-all route that hands the raw
   `Request` to `api.handleFetch`. On a plain Worker (no Astro) you'd call
