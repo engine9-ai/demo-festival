@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import PersonWorker from "@engine9/core/PersonWorker";
 import pluginEntries, { packageVersions } from "@engine9/core/plugins/site";
 import { createPluginRegistry } from "@engine9/core/pluginRegistry";
+import { DEFAULT_CORE_SCHEMAS } from "@engine9/core/stackMetadata";
 import { SqlApiKeyStore } from "@engine9/core/auth";
 import { createDelegateAuth } from "@engine9/core/auth/delegate";
 import { BatchLogger } from "@engine9/core/logging";
@@ -53,16 +54,43 @@ export function createPersonWorker() {
 let standardPlugins: Promise<void> | undefined;
 
 /**
- * Install the published person schema plugins (plugin rows + inbound snapshots)
- * once per isolate. The seeded `@demo/festival-website` row is attribution
- * for writes; it is not an inbound people plugin. `POST /people` and login
- * need the standard schema plugins installed.
+ * One query: are the standard person schema plugins already installed? A
+ * site's database is installed once (migration 0003, then `e9core upgrade`
+ * after a release), so on almost every cold Worker the answer is yes and the
+ * login skips `installDefaultPlugins`, which diffs every table of every
+ * plugin (dozens of D1 round trips). A missing `plugin` table, a missing row,
+ * or any error means "not sure": install.
+ */
+async function standardPluginsInstalled(
+  worker: ReturnType<typeof createPersonWorker>,
+): Promise<boolean> {
+  try {
+    const paths: string[] = DEFAULT_CORE_SCHEMAS;
+    const { data } = await worker.query({
+      sql: `select path from plugin where path in (${paths.map(() => "?").join(",")})`,
+      values: paths,
+    });
+    const have = new Set((data as { path: string }[]).map((row) => row.path));
+    return paths.every((path) => have.has(path));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Make sure the published person schema plugins (plugin rows + inbound
+ * snapshots) are installed, once per isolate. The seeded
+ * `@demo/festival-website` row is attribution for writes; it is not an
+ * inbound people plugin. `POST /people` and login need the standard schema
+ * plugins installed. Already installed (the normal case) costs one query;
+ * schema changes from a new release are applied by `e9core upgrade`, not by
+ * a visitor's login.
  */
 export function ensureStandardPlugins(): Promise<void> {
   if (standardPlugins) return standardPlugins;
   const worker = createPersonWorker();
-  const pending = worker
-    .installDefaultPlugins()
+  const pending = standardPluginsInstalled(worker)
+    .then((installed) => (installed ? undefined : worker.installDefaultPlugins()))
     .then(() => undefined)
     .catch((err: unknown) => {
       standardPlugins = undefined;

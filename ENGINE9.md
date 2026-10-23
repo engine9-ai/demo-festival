@@ -224,6 +224,14 @@ site's routes:
 - `onLogout()` — `POST /auth/logout` (`keepalive`), started in the same click
   as the Delegate logout popup
 
+The button reads **Logging in…** (with a spinner) from the click, and again
+from the first paint of the return from Delegate until `onLogin` answers, so
+the visitor never sees a plain Login button while a login is in flight.
+`ensureStandardPlugins()` keeps the return quick: it asks the database one
+question (are the standard schema plugins already installed?) and runs
+`installDefaultPlugins()` only when the answer is no. A site is installed
+once and upgraded with `e9core upgrade`; a visitor's login never migrates it.
+
 In-page log in links carry `data-open-login`; the layout opens the widget's
 dialog for them, and their `href="/login"` is the no-JavaScript fallback.
 
