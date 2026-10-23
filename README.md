@@ -96,7 +96,7 @@ authentication](../core/README.md#authentication).
 Identity flow: [`docs/identity-flow.md`](docs/identity-flow.md).
 
 Local development: copy `.env.example` to `.env`. `SESSION_SECRET` is required.
-Point `DELEGATE_URL` at `https://delegate.engine9.ai`. The callback is
+Point `DELEGATE_URL` at `https://delegate.network`. The callback is
 `?delegate_token=` (`response_mode=query`).
 
 ## How it's put together

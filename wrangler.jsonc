@@ -26,7 +26,7 @@
   // Delegate — engine9's common sign-in. This site verifies Identity Tokens
   // via JWKS and signs its own session cookie with SESSION_SECRET.
   "vars": {
-    "DELEGATE_URL": "https://delegate.engine9.ai",
+    "DELEGATE_URL": "https://delegate.network",
   },
   // Set values locally in .env (see .env.example); in prod use `wrangler secret put`.
   "secrets": {

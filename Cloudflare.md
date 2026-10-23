@@ -85,7 +85,7 @@ account), then redeploy:
 ```
 
 The sibling `delegate` service uses this exact pattern for
-`delegate.engine9.ai`.
+`delegate.network`.
 
 ## Useful commands
 
@@ -103,7 +103,7 @@ The sibling `delegate` service uses this exact pattern for
 ## Production auth note
 
 Authentication is already wired through **delegate**, engine9's common sign-in
-(`delegate.engine9.ai`). The preferred path is an Identity Token (JWT)
+(`delegate.network`). The preferred path is an Identity Token (JWT)
 from `GET /identity/authorize`, verified via JWKS in
 `@engine9/core/auth/delegate`. Login requests required fields
 `display_name` and `email`, and no optional fields.

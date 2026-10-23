@@ -111,7 +111,7 @@ export function ensureStandardPlugins(): Promise<void> {
 export function delegateAuth() {
   return createDelegateAuth({
     worker: createPersonWorker(),
-    delegateUrl: env.DELEGATE_URL || "https://delegate.engine9.ai",
+    delegateUrl: env.DELEGATE_URL || "https://delegate.network",
     sessionSecret: env.SESSION_SECRET,
     pluginId: FESTIVAL_PLUGIN_ID,
     remoteInputId: "delegate-login",

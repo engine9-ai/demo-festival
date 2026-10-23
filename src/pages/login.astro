@@ -13,7 +13,7 @@ const errorDetail = Astro.url.searchParams.get("detail");
 const session = Astro.locals.session;
 
 const returnTo = new URL("/auth/delegate", Astro.url.origin).toString();
-const delegateBase = env.DELEGATE_URL || "https://delegate.engine9.ai";
+const delegateBase = env.DELEGATE_URL || "https://delegate.network";
 
 /** Log in: sets a `state` cookie, then /identity/authorize in query mode for this SSR callback. */
 const loginUrl = "/auth/login";
@@ -349,8 +349,8 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
   const wrap = document.querySelector(".login-wrap");
   const delegateUrl =
     wrap instanceof HTMLElement
-      ? wrap.dataset.delegateUrl || "https://delegate.engine9.ai"
-      : "https://delegate.engine9.ai";
+      ? wrap.dataset.delegateUrl || "https://delegate.network"
+      : "https://delegate.network";
   const TAG = "[festival login]";
   // A variable, not a literal, so @engine9/id releases without `debug` still accept it.
   const idConfig = { delegateUrl, storage: "session" as const, debug: true, brand: POPUP_SIGN_IN_BRAND };

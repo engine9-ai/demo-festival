@@ -15,7 +15,7 @@ const isAdminRoute = path.startsWith("/admin");
 
 /** Header login widget. Role ids are the keys `/auth/role` accepts. */
 const widget = {
-  delegateUrl: env.DELEGATE_URL || "https://delegate.engine9.ai",
+  delegateUrl: env.DELEGATE_URL || "https://delegate.network",
   fields: LOGIN_FIELDS,
   brand: POPUP_SIGN_IN_BRAND,
   user: widgetUser(session),

@@ -208,7 +208,7 @@ authentication](../core/README.md#authentication) and
 [`docs/identity-flow.md`](docs/identity-flow.md).
 
 `SESSION_SECRET` is required. `DELEGATE_URL` is a wrangler var
-(`https://delegate.engine9.ai`).
+(`https://delegate.network`).
 
 ### Stage 9 — Identity Tokens and `@engine9/id`
 

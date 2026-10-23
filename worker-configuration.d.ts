@@ -4,7 +4,7 @@
 interface __BaseEnv_Env {
 	DB: D1Database;
 	ASSETS: Fetcher;
-	DELEGATE_URL: "https://delegate.engine9.ai";
+	DELEGATE_URL: "https://delegate.network";
 	SESSION_SECRET: string;
 }
 declare namespace Cloudflare {
