@@ -67,9 +67,11 @@ Delegate information**, `GET /auth/change`, on `/login`) sends the same request 
 `prompt=select`. Delegate always
 shows the share page, with the person's email addresses to pick from, a link
 to add one, and a link to use a different Google account. The new token
-replaces this site's session. Picking another address keeps the same Domain
-UNID (`sub`), so the site sees the same person. Switching Google accounts
-signs in as a different delegate User, so the site sees a different `sub`.
+replaces this site's session. Core finds the person by the confirmed
+address, so picking another address (or another Google account) signs in as
+whoever core knows by that address, a different person unless core already
+joined the two. The Domain UNID (`sub`) does not join them
+([core: who is signing in](../../core/auth/README.md#who-is-signing-in-credential-identity-deduplication)).
 
 The widget always offers it. Also point to it wherever a signed-in person
 could be stuck with the wrong address: the login page (a `data-open-login`
