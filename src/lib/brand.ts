@@ -5,7 +5,7 @@
  *
  * `google` is per flow: a popup (the widget, `requestIdentity`) must keep
  * Delegate's Google button, so it is restyled (`brand`); a full-page login
- * (`/auth/login`) goes straight to Google (`skip`).
+ * (core's `/api/auth/start`) goes straight to Google (`skip`).
  */
 export const SIGN_IN_BRAND = {
   name: "Solstice Wave",

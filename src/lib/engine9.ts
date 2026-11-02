@@ -19,6 +19,7 @@ export {
   VIP_SEGMENT_ID,
 } from "./roles";
 import {
+  DEMO_PUBLIC_API_KEY,
   FESTIVAL_PLUGIN_ID,
   ROLE_REGISTRY,
   VIP_SEGMENT_ID,
@@ -101,12 +102,10 @@ export function ensureStandardPlugins(): Promise<void> {
 }
 
 /**
- * All delegate login/session/role logic lives in @engine9/core; this is pure
- * configuration: which delegate to trust, which secrets to use, which plugin
- * records the logins, which segments count as roles, and that demo roles are
- * session-scoped (re-prompted every login). `createApi({ delegate })` is the
- * default when those extras are not needed; this demo passes `delegateAuth`
- * so `loadRolesOnLogin` stays false.
+ * All sign-in, session, and role logic lives in @engine9/core. This is pure
+ * configuration: which delegate to trust, which secret signs the session,
+ * which plugin records the logins, and which segments are roles. The
+ * middleware gate (`requireRole`) and the API under /api share it.
  */
 export function delegateAuth() {
   return createDelegateAuth({
@@ -116,38 +115,31 @@ export function delegateAuth() {
     pluginId: FESTIVAL_PLUGIN_ID,
     remoteInputId: "delegate-login",
     roles: ROLE_REGISTRY,
-    // Demo session roles: every login starts empty so /choose-role re-prompts.
-    loadRolesOnLogin: false,
   });
 }
 
 /** Share fields every festival login requires. There are no optional fields. */
 export const LOGIN_FIELDS = ["display_name", "email"];
 
+/** Where a sign-in that did not start on a gated page lands: it sends the person on. */
+export const AFTER_SIGN_IN = "/signed-in";
+
 /**
- * Delegate authorize URL for this site's login. Lands on `/auth/delegate`.
- * `prompt: "select"` is "Change your Delegate information": delegate always
- * shows its share page, so the person can pick another email address.
- * `again` marks a login restarted after an unrecognized `state`, so a browser
- * that drops the state cookie stops after one retry. Use `startLogin()` in
- * `session.ts`, which also sets that cookie.
+ * `@engine9/id`'s `core` option for every browser client on this site.
+ *
+ * `session: "cookie"` is the recommended setting for any site with a server:
+ * core sets its HttpOnly `e9_session` cookie, the same session the redirect
+ * sign-in (`/api/auth/start`) sets, so the middleware gate sees the person
+ * however they signed in. Each login starts with `POST /api/auth/begin`, so
+ * the Identity Token must carry a nonce core issued to this browser. The
+ * public key may be in page JavaScript: it can add people and log in,
+ * nothing else.
  */
-export function loginIdentityUrl(
-  origin: string,
-  opts: { prompt?: "select"; state?: string; again?: boolean } = {},
-) {
-  const returnTo = new URL("/auth/delegate", origin);
-  if (opts.again) returnTo.searchParams.set("again", "1");
-  return delegateAuth().identityUrl({
-    returnTo: returnTo.toString(),
-    minLevel: 1,
-    fields: LOGIN_FIELDS,
-    prompt: opts.prompt,
-    brand: REDIRECT_SIGN_IN_BRAND,
-    state: opts.state,
-    responseMode: "query",
-  });
-}
+export const BROWSER_CORE = {
+  apiUrl: "/api",
+  publicApiKey: DEMO_PUBLIC_API_KEY,
+  session: "cookie",
+} as const;
 
 export function createEngine9Api() {
   const worker = createPersonWorker();
@@ -166,6 +158,13 @@ export function createEngine9Api() {
     logger,
     delegateAuth: delegateAuth(),
     config: {
+      // GET /api/auth/start and /api/auth/callback: the redirect sign-in.
+      // Everything Delegate is asked for comes from here, never the URL.
+      signIn: {
+        minLevel: 1,
+        fields: LOGIN_FIELDS,
+        brand: REDIRECT_SIGN_IN_BRAND,
+      },
       pluginId: FESTIVAL_PLUGIN_ID,
       defaultRemoteInputId: "festival-website",
       roles: ROLE_REGISTRY,

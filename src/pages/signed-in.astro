@@ -1,0 +1,25 @@
+---
+import { delegateAuth } from "../lib/engine9";
+import { showAdmin, showVip } from "../lib/session";
+
+/**
+ * Where a sign-in that did not start on a gated page lands
+ * (`/api/auth/start?returnTo=/signed-in`). core's `/api/auth/callback` has
+ * already set the `e9_session` cookie; this page only sends the person on,
+ * by the roles they hold now (`rolesForSession` reads `person_segment`). The
+ * page it sends them to runs the real gate.
+ *
+ * A failed sign-in comes back here with `?login_error=<reason>`; `/login`
+ * explains it.
+ */
+const loginError = Astro.url.searchParams.get("login_error");
+if (loginError) return Astro.redirect(`/login?login_error=${encodeURIComponent(loginError)}`);
+
+const session = Astro.locals.session;
+if (!session) return Astro.redirect("/login");
+const now = { ...session, roles: await delegateAuth().rolesForSession(session) };
+if (showAdmin(now)) return Astro.redirect("/admin");
+if (showVip(now)) return Astro.redirect("/vip");
+// Signed in with no role yet: the demo lets people pick one.
+return Astro.redirect("/choose-role");
+---

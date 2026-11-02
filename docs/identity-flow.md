@@ -3,21 +3,32 @@
 The demo is an Astro + Cloudflare Worker Site that embeds `@engine9/core`
 and `@engine9/id`. Protocol: [`id/docs/protocol.md`](../../id/docs/protocol.md).
 
+**This is the recommended way to sign people in with core and Delegate.**
+Every step below is core's or `@engine9/id`'s. The site writes no sign-in
+route and keeps no session of its own; the only site code is configuration,
+the 403 page, and the demo-only role picker. The general guide is core's
+[Sign-in on a site](../../core/docs/sign-in.md).
+
 ## How visitors log in
 
-The [`@engine9/id` login widget](../../id/README.md#the-login-widget) in the
-header is the main way to interact with Delegate. One **Login** button shows
-the session's email and role. Its dialog runs every Delegate step on the
-current page: Log in with Google, Switch email, Change role (VIP or Admin),
-and Log out. Only the Delegate popup opens a second window.
+The [`@engine9/id` login widget](../../id/README.md#with-a-server-session) in
+the header is the main way to interact with Delegate. One **Login** button
+shows the session's email and role. Its dialog runs every Delegate step:
+Log in with Google, Switch email, Change role (VIP or Admin), and Log out.
+
+The widget runs with `core: { apiUrl: "/api", publicApiKey, session:
+"cookie" }` (`BROWSER_CORE` in `src/lib/engine9.ts`). That one setting is what
+makes it the recommended setup: core sets its HttpOnly `e9_session` cookie
+from the widget's sign-in, and that cookie is what the server gate reads.
 
 In-page log in links (Schedule, Tickets, Register, and the notices on
 `/login`) carry `data-open-login`; the layout opens the same dialog for them.
-Their `href` is the no-JavaScript fallback.
+Their `href` (`/login`) is the no-JavaScript fallback: a plain link to
+core's `/api/auth/start`, which ends in the same cookie.
 
-`/login` leads with the same Login button, then the fallback: the full-page
-redirect flow, a popup button, a Level 0 probe, and the reason codes when
-sign-in fails.
+`/login` leads with the same Login button, then the fallback, a popup
+button, a Level 0 probe, and the reason when sign-in fails
+(`?login_error=`).
 
 ## Roles (example)
 
@@ -32,14 +43,20 @@ sign-in fails.
 - **Admin** — segment `4f4ac886-f53d-48e1-b4bd-5a98eb48cc6f`, scopes
   `admin`, `requiredAuth.minLevel = 3` (trusted provider).
 
-`loadRolesOnLogin: false` so every login picks a role: in the widget's Role
-section, or on `/choose-role` after a redirect login.
+The gate (`src/middleware.ts`) is core's `requireRole`: `/admin` needs Admin,
+`/vip` needs VIP or Admin. It reads `person_segment` on each request, so a
+role granted or removed takes effect on the next page.
+
+**Demo only:** a signed-in person without a role picks one, in the widget's
+Role section or on `/choose-role` (`POST /auth/role`). That stands in for an
+operator granting roles (`npx e9core segment add --segment admin --email …`).
+On a real site nobody makes themselves Admin. Do not copy it.
 
 ## Requested fields
 
 Login asks delegate for required fields `display_name` and `email`
-(`fields` on `/identity/authorize` and on the `@engine9/id` popup).
-There are no `optional_fields`.
+(`config.signIn.fields` for the redirect, `fields` on the widget). There are
+no `optional_fields`.
 
 When a request omits both lists, delegate requires that same pair.
 Required fields are locked on the share page. Optional fields, when a
@@ -51,33 +68,33 @@ Level 0 (`level_unavailable` when `min_level` is above 0).
 ## Log in vs. Switch email
 
 The widget's **Log in with Google**, and the fallback **Log in** and **Log
-in (popup)** on `/login`, are the same request. The widget and the popup
-button use an `@engine9/id` popup; **Log in** takes the page to delegate and
-back. All go straight through when the Grant already covers the request.
+in (popup)** on `/login`, are the same request. All go straight through when
+the Grant already covers the request.
 
 All three send the festival's colors (`src/lib/brand.ts`), so delegate's
-sign-in page matches the site. The popups send `google: "brand"`: delegate
+sign-in page matches the site. Popups send `google: "brand"`: delegate
 must keep its Google button there (a browser blocks a window opened without
 a click), so it reads **Continue with Google** in festival purple. The
 redirect **Log in** sends `google: "skip"`, so a signed-out visitor goes
 from this site's button straight to Google.
 
-**Switch email** in the widget (and its redirect fallback **Change your
-Delegate information**, `GET /auth/change`, on `/login`) sends the same request with
-`prompt=select`. Delegate always
-shows the share page, with the person's email addresses to pick from, a link
-to add one, and a link to use a different Google account. The new token
-replaces this site's session. Core finds the person by the confirmed
-address, so picking another address (or another Google account) signs in as
-whoever core knows by that address, a different person unless core already
-joined the two. The Domain UNID (`sub`) does not join them
+**Switch email** in the widget (and **Change your Delegate information** on
+`/login`, `changeSignInUrl()` from `@engine9/core/auth/signIn`) sends the
+same request with `prompt=select`. Delegate always shows the share page,
+with the person's email addresses to pick from, a link to add one, and a
+link to use a different Google account. The new sign-in replaces the
+`e9_session` cookie. Core finds the person by the confirmed address, so
+picking another address (or another Google account) signs in as whoever core
+knows by that address, a different person unless core already joined the
+two. The Domain UNID (`sub`) does not join them
 ([core: who is signing in](../../core/auth/README.md#who-is-signing-in-credential-identity-deduplication)).
 
-The widget always offers it. Also point to it wherever a signed-in person
-could be stuck with the wrong address: the login page (a `data-open-login`
-link to the dialog) and login errors (`/auth/change`, which works without a
-session). Signing in again does not help them, because delegate goes
-straight through with the remembered Grant.
+The widget always offers it. The 403 page (`/denied`) offers it too, as the
+gate's `changeUrl`, with `reason=access_denied`: Delegate then tells the
+person this site did not let them in with the address they shared. Signing
+in again does not help someone with the wrong address, because delegate
+goes straight through with the remembered Grant. That is why the gate never
+answers "not allowed" with a sign-in redirect.
 
 Shareable delegate fields are `display_name`, `given_name`,
 `family_name`, `email`, `phone`, and `attributes`. `email_type` is a
@@ -90,59 +107,61 @@ Register and people APIs use `@engine9/schemas` names:
 `given_name`, `family_name`, `email`, `email_type` (`Personal` | `Work` |
 `Other`). See [`id/docs/forms.md`](../../id/docs/forms.md).
 
-## Sequence (login widget)
+## Sequence (login widget, `session: "cookie"`)
 
 ```mermaid
 sequenceDiagram
   participant B as Browser (widget)
-  participant P as delegate popup
-  participant S as Demo Worker
-  B->>P: open /identity/bridge?domain&min_level=1&fields=display_name,email
-  P-->>B: postMessage delegate-identity (JWT)
-  B->>S: POST /auth/delegate { delegate_token }
-  S->>S: verify JWT, unid to person_id, mint Core Session
-  S-->>B: Set-Cookie session, { user, needsRole }
-  B->>S: POST /auth/role (Accept: application/json)
-  S-->>B: { redirect }
+  participant C as core (/api)
+  participant D as delegate
+  B->>C: POST /api/auth/begin
+  C-->>B: { state, nonce } + Set-Cookie e9_login
+  B->>D: /identity/authorize (or the bridge popup) with that state and nonce
+  D-->>B: Identity Token (JWT, nonce inside)
+  B->>B: @engine9/id verifies it (JWKS, nonce, state)
+  B->>C: POST /api/auth/login { delegate_token, state, cookie: true }
+  C->>C: state + nonce match e9_login? Origin is this site? verify JWT, find person_id
+  C-->>B: { session } + Set-Cookie e9_session (no token in the body)
+  B->>B: reload, so the server renders by the cookie
 ```
 
-Log out starts `POST /auth/logout` and, when the visitor ticks "Also sign
-out of Delegate in this browser", the `/identity/logout/bridge` popup in the
-same click.
+A popup opens empty inside the click and goes to Delegate once core has
+answered `/api/auth/begin`, so popup blockers allow it.
+
+Log out: `id.logout()` calls `POST /api/auth/logout` (and, when the visitor
+ticks "Also sign out of Delegate in this browser", opens the
+`/identity/logout/bridge` popup in the same click). The widget's
+`onLoggedOut` navigates home once both have finished.
 
 ## Sequence (redirect fallback, `/login`)
 
 ```mermaid
 sequenceDiagram
   participant B as Browser
+  participant C as core (/api)
   participant D as delegate
-  participant S as Demo Worker
-  B->>S: GET /auth/login
-  S-->>B: Set-Cookie login_state, 302 to Delegate
-  B->>D: GET /identity/authorize?domain&min_level=1&fields=display_name,email&state
+  B->>C: GET /api/auth/start?returnTo=/signed-in
+  C-->>B: Set-Cookie e9_login (state + nonce), 302 to Delegate
+  B->>D: GET /identity/authorize?domain&min_level=1&fields=display_name,email&state&nonce
   D-->>B: share page, or silent token
-  D-->>B: 302 return_to?delegate_token=JWT&state
-  B->>S: GET /auth/delegate?delegate_token&state
-  S->>S: state matches login_state (else restart once)
-  S->>D: GET /.well-known/jwks.json
-  S->>S: verify JWT, unid to person_id, mint Core Session
-  S-->>B: Set-Cookie session
-  B->>S: GET /api/auth/me
-  S-->>B: personId, roles, level
+  D-->>B: 302 /api/auth/callback?delegate_token=JWT&state
+  B->>C: GET /api/auth/callback
+  C->>C: state + nonce match e9_login, verify JWT, find person_id
+  C-->>B: Set-Cookie e9_session, 302 /signed-in
+  B->>B: /signed-in sends them to /admin, /vip, or /choose-role
 ```
 
 ## Client vs server
 
-- `@engine9/id/widget` in the header (every page): one Login button and
-  dialog. Popup login, then `POST /auth/delegate` with `{ delegate_token }`
-  (JSON answer, same session cookie). The dialog then offers VIP / Admin
-  (`POST /auth/role` with `Accept: application/json`), Switch email, and
-  Log out.
-- `@engine9/id` fallback on `/login`: Identity Token popup (`requestIdentity`
-  with required `display_name` and `email`), then `POST /auth/delegate`;
-  and a Level 0 probe (no fields).
-- Server: JWT verify, person pipeline, HttpOnly `session` cookie,
-  middleware for `/vip` and `/admin` (also checks `requiredAuth.minLevel`).
+- Browser, `@engine9/id/widget` in the header (every page): one Login button
+  and dialog, `core.session: "cookie"`. It shows; it decides nothing.
+- Browser, `@engine9/id` on `/login`: the same sign-in from a plain popup
+  button, and a Level 0 probe (no fields, no core).
+- Server, core: every sign-in route, the person pipeline, the HttpOnly
+  `e9_session` cookie, and `requireRole` for `/vip` and `/admin` (roles from
+  `person_segment`, plus `requiredAuth.minLevel`).
+- Server, this site: `config.signIn`, the middleware that calls the gate,
+  `/denied`, `/signed-in`, and the demo-only role picker.
 - Level 1 register: `/auth/register` → `POST /api/people` with
   `{ given_name, family_name, email, email_type }` and the seeded
   `e9publickey_` (scope `public` only). The private `e9key_` stays
@@ -152,24 +171,22 @@ Browser-only on-ramp (no core): [`demo-id`](../../demo-id).
 
 ## A return for another request
 
-Every login carries a `state`. The widget and the popup keep it in
-`@engine9/id`; the redirect login keeps it in the `login_state` cookie. A
-return whose `state` this browser did not start is not a failure and
-nothing expired. It comes from another tab, an older attempt, or a sign-in
-email opened in a different browser or app. The site starts the login again:
+Every sign-in carries a `state` and a `nonce` that core issued to this
+browser (in its `e9_login` cookie). A return whose `state` this browser did
+not start is not a failure and nothing expired. It comes from another tab,
+an older attempt, or a sign-in email opened in a different browser or app.
 
-- The widget and popup (`state_mismatch` in `@engine9/id`) leave the page
-  logged out with no error. Login works on the next click.
-- `GET /auth/delegate` redirects to `/auth/login?again=1`. Delegate answers
-  it silently when the person is still signed in there. If the `state`
-  still does not match (the browser drops the cookie), `/login` asks them to
-  allow cookies (`state_mismatch`) instead of looping.
+- The redirect: core's `/api/auth/callback` sends the browser to `/` with
+  nothing set; Log in works on the next click.
+- The widget and popup: `@engine9/id` reports `state_mismatch` and leaves the
+  page logged out with no error. A token whose nonce is not the one core
+  issued is refused by core too (`401 state_mismatch`).
 
 ## When sign-in fails after Delegate
 
-Delegate has already sent the Identity Token. The failure is this site
-finishing login: install schema plugins, resolve the person, mint the session.
-The login page shows the reason code and the database or plugin detail.
+Delegate has already sent the Identity Token. The failure is core
+finishing login: install schema plugins, resolve the person, set the session.
+core sends the reason back as `?login_error=`, and `/login` shows it.
 Signing in again does not fix a configuration failure.
 
 | Reason | What is happening |

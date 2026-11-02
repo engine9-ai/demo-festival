@@ -2,8 +2,9 @@
 import Layout from "../../layouts/Layout.astro";
 import { getDB, formatPrice, type Performance, type Person } from "../../lib/db";
 
-// Middleware guarantees a VIP or Admin session before this page renders;
-// logged-out visitors were already redirected to /login.
+// The middleware gate (core's requireRole) guarantees a VIP or Admin session
+// before this page renders: signed-out visitors went to /api/auth/start, and
+// signed-in visitors without the role got the 403 page.
 const session = Astro.locals.session!;
 const db = getDB();
 

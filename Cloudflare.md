@@ -103,13 +103,13 @@ The sibling `delegate` service uses this exact pattern for
 ## Production auth note
 
 Authentication is already wired through **delegate**, engine9's common sign-in
-(`delegate.network`). The preferred path is an Identity Token (JWT)
-from `GET /identity/authorize`, verified via JWKS in
-`@engine9/core/auth/delegate`. Login requests required fields
-`display_name` and `email`, and no optional fields.
+(`delegate.network`), the recommended way: core's sign-in routes under
+`/api/auth/*` and its HttpOnly `e9_session` cookie, gated by `requireRole`
+in `src/middleware.ts`. Login requests required fields `display_name` and
+`email`, and no optional fields.
 
-Set `SESSION_SECRET` with `wrangler secret put SESSION_SECRET`. After first login this
-demo still shows `/choose-role` (VIP needs Level 1, Admin Level 3); that
-picker is demo policy, not a Delegate feature.
+Set `SESSION_SECRET` with `wrangler secret put SESSION_SECRET`. A signed-in
+person with no role is offered `/choose-role` (VIP needs Level 1, Admin
+Level 3); that picker is demo policy, not a Delegate or core feature.
 
 See [`docs/identity-flow.md`](docs/identity-flow.md).

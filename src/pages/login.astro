@@ -2,30 +2,29 @@
 import { env } from "cloudflare:workers";
 import Layout from "../layouts/Layout.astro";
 import { domainFromUrl } from "@engine9/core/auth/delegate";
-import { LOGIN_FIELDS } from "../lib/engine9";
+import { changeSignInUrl, signInUrl } from "@engine9/core/auth/signIn";
+import { AFTER_SIGN_IN, BROWSER_CORE, LOGIN_FIELDS } from "../lib/engine9";
+import { loginErrorFor } from "../lib/loginErrors";
 import { primaryRole } from "../lib/session";
 
-const required = Astro.url.searchParams.get("required");
-const errorMessage = Astro.url.searchParams.get("message");
-const errorReason = Astro.url.searchParams.get("error");
-const errorKind = Astro.url.searchParams.get("kind");
-const errorDetail = Astro.url.searchParams.get("detail");
+/** core's /api/auth/callback sends a failed sign-in back with ?login_error=<reason>. */
+const loginErrorReason = Astro.url.searchParams.get("login_error");
+const loginError = loginErrorFor(loginErrorReason);
 const session = Astro.locals.session;
 
-const returnTo = new URL("/auth/delegate", Astro.url.origin).toString();
 const delegateBase = env.DELEGATE_URL || "https://delegate.network";
 
-/** Log in: sets a `state` cookie, then /identity/authorize in query mode for this SSR callback. */
-const loginUrl = "/auth/login";
-/** "Change your Delegate information": the same request with prompt=select. */
-const changeUrl = "/auth/change";
+/** Log in without JavaScript: core's redirect sign-in (state + nonce in its e9_login cookie). */
+const loginUrl = signInUrl(AFTER_SIGN_IN);
+/** "Change your Delegate information": the same sign-in with prompt=select. */
+const changeUrl = changeSignInUrl(AFTER_SIGN_IN);
 /** A failed login that came from the person's identity, not this site's configuration. */
-const showChangeOnError = Boolean(errorReason || errorMessage) && errorKind !== "configuration";
+const showChangeOnError = Boolean(loginError) && loginError?.kind !== "configuration";
 
 const identityBridgeUrl = new URL("/identity/bridge", delegateBase);
 const domain = domainFromUrl(Astro.url.origin);
 if (domain) identityBridgeUrl.searchParams.set("domain", domain);
-identityBridgeUrl.searchParams.set("return_to", returnTo);
+identityBridgeUrl.searchParams.set("return_to", Astro.url.origin);
 identityBridgeUrl.searchParams.set("min_level", "0");
 
 /** Inspect Delegate itself (no Site session). */
@@ -39,7 +38,7 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
 ---
 
 <Layout title="Log in">
-  <div class="login-wrap" data-delegate-url={delegateBase}>
+  <div class="login-wrap" data-delegate-url={delegateBase} data-core={JSON.stringify(BROWSER_CORE)}>
     <h1>Log in</h1>
     <p class="lede">
       This site logs in with <strong>delegate</strong>, engine9's common sign-in.
@@ -58,32 +57,12 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
       </p>
     )}
 
-    {required && (
-      <p class="notice">
-        That page requires <strong>{required.toUpperCase()}</strong> access.
-        <a href={loginUrl} data-open-login>Log in</a> and pick that role to
-        continue.
-      </p>
-    )}
-
-    {errorMessage && (
-      <p class={`notice error${errorKind === "configuration" ? " config" : ""}`}>
-        {errorMessage}
-        {(errorReason || errorDetail) && (
-          <span class="operator-detail">
-            {errorReason && (
-              <>
-                Error code: <code>{errorReason}</code>
-              </>
-            )}
-            {errorDetail && (
-              <>
-                {errorReason && " · "}
-                Detail: <code>{errorDetail}</code>
-              </>
-            )}
-          </span>
-        )}
+    {loginError && (
+      <p class={`notice error${loginError.kind === "configuration" ? " config" : ""}`}>
+        {loginError.message}
+        <span class="operator-detail">
+          Error code: <code>{loginErrorReason}</code>
+        </span>
         {showChangeOnError && (
           <span class="change-hint">
             Signed in with the wrong account or address?
@@ -101,10 +80,13 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
             The <strong>Login</strong> button in the header is
             <code>loginWidget()</code> from <code>@engine9/id/widget</code>.
             One dialog on this page logs in with Google, switches the email
-            address this site sees, picks VIP or Admin, and logs out. Delegate
-            opens in a popup and signs an Identity Token; the widget posts it
-            to <code>/auth/delegate</code>, which verifies it via JWKS and
-            starts this site’s session. The button below opens the same dialog.
+            address this site sees, picks VIP or Admin, and logs out. It runs
+            with <code>core: {"{"} session: "cookie" {"}"}</code>, the
+            recommended setting: core issues the nonce
+            (<code>POST /api/auth/begin</code>), Delegate signs an Identity
+            Token for it, and <code>id.core.login()</code> makes core set its
+            HttpOnly <code>e9_session</code> cookie. This site has no
+            sign-in route of its own. The button below opens the same dialog.
           </p>
           <p class="outcome">
             <strong>You’ll see:</strong> delegate’s sign-in if you are not
@@ -132,19 +114,19 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
           <h2>2. Without the widget (fallback)</h2>
           <p class="tag">Identity Token · JWT · no shared secret</p>
           <p>
-            The same request the widget sends, for browsers without
-            JavaScript or popups and for debugging:
-            <code>/identity/authorize</code> with <code>min_level=1</code>
-            and required fields <code>display_name</code> and
-            <code>email</code>. <strong>Log in</strong> takes this page to
-            delegate and back; it sends <code>brand_google=skip</code>, so a
-            signed-out visitor goes straight to Google without a second
-            button. <strong>Log in (popup)</strong> calls
-            <code>requestIdentity()</code> from <code>@engine9/id</code>
+            The same sign-in for browsers without JavaScript or popups:
+            core's <code>/api/auth/start</code>, a plain link. Core sends
+            Delegate this site's <code>config.signIn</code>
+            (<code>min_level=1</code>, <code>display_name</code> and
+            <code>email</code>, <code>brand_google=skip</code> so a signed-out
+            visitor goes straight to Google), and
+            <code>/api/auth/callback</code> sets the same
+            <code>e9_session</code> cookie. <strong>Log in (popup)</strong>
+            calls <code>requestIdentity()</code> and
+            <code>id.core.login()</code> from <code>@engine9/id</code>
             directly. <strong>Change your Delegate information</strong> is
-            the widget’s Switch email as a redirect
-            (<code>prompt=select</code>). After a redirect login you pick a
-            role on <code>/choose-role</code>.
+            <code>changeSignInUrl()</code> (<code>prompt=select</code>). A
+            person without a role picks one on <code>/choose-role</code>.
           </p>
           <div class="btn-row three">
             <a class="btn btn-ghost option-ghost" id="identity-redirect" href={loginUrl}>Log in</a>
@@ -232,10 +214,9 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
     {session && (
       <p class="muted session-note">
         You're currently logged in as <strong>{primaryRole(session).toUpperCase()}</strong>
-        (person_id {session.personId}). Logging in again re-verifies with Delegate;
-        this demo clears roles each login so you get the role picker again.
-        <strong>Switch email</strong> in the <a href={changeUrl} data-open-login>Login</a>
-        dialog does the same and lets you pick another email address first.
+        (person_id {session.personId}{session.email ? `, ${session.email}` : ""}).
+        <a href={changeUrl}>Change your Delegate information</a> signs you in
+        with another address or account; what you can see follows the address.
       </p>
     )}
   </div>
@@ -246,18 +227,13 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
   const identityResult = document.getElementById("identity-result");
 
   const failed = new URLSearchParams(window.location.search);
-  if (failed.has("error") || failed.has("message")) {
-    console.error(TAG, "The last login failed.", {
-      error: failed.get("error"),
-      kind: failed.get("kind"),
-      message: failed.get("message"),
-      detail: failed.get("detail"),
-    });
+  if (failed.has("login_error")) {
+    console.error(TAG, "The last login failed.", { login_error: failed.get("login_error") });
   }
 
   document.getElementById("identity-redirect")?.addEventListener("click", (e) => {
     const link = e.currentTarget;
-    console.info(TAG, "Redirecting to Delegate /identity/authorize.", {
+    console.info(TAG, "Redirecting to core /api/auth/start, then Delegate /identity/authorize.", {
       url: link instanceof HTMLAnchorElement ? link.href : null,
     });
   });
@@ -351,10 +327,12 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
     wrap instanceof HTMLElement
       ? wrap.dataset.delegateUrl || "https://delegate.network"
       : "https://delegate.network";
+  const core = wrap instanceof HTMLElement ? JSON.parse(wrap.dataset.core || "null") : null;
   const TAG = "[festival login]";
-  // A variable, not a literal, so @engine9/id releases without `debug` still accept it.
-  const idConfig = { delegateUrl, storage: "session" as const, debug: true, brand: POPUP_SIGN_IN_BRAND };
-  const id = createEngine9Id(idConfig);
+  // The recommended client: core issues the nonce and sets the e9_session cookie.
+  const id = createEngine9Id({ delegateUrl, storage: "session", debug: true, brand: POPUP_SIGN_IN_BRAND, core });
+  // Debugging only: a Level 0 token, no sign-in with core.
+  const probe = createEngine9Id({ delegateUrl, storage: "memory", debug: true, brand: POPUP_SIGN_IN_BRAND });
   const identityResult = document.getElementById("identity-result");
 
   function show(label: string, data: unknown) {
@@ -412,35 +390,21 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
       level: identity.level,
       exp: identity.exp,
     });
-    const token = sessionStorage.getItem("delegate_token");
-    if (!token) {
-      console.error(TAG, "The Identity Token verified, but delegate_token is not in sessionStorage, so this site cannot finish the login on its server.");
-      show("// @engine9/id popup (token missing from sessionStorage)", identity);
+    // core checks the nonce it issued and the state, then sets e9_session.
+    console.info(TAG, "Popup login: POST /api/auth/login with cookie: true.");
+    try {
+      await id.core!.login();
+    } catch (err) {
+      fail("Popup login: core could not finish the login", err);
       return;
     }
-    // @engine9/id already matched the popup's state; the server takes the token as JSON.
-    console.info(TAG, "Popup login: sending the token to POST /auth/delegate.");
-    const res = await fetch("/auth/delegate", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ delegate_token: token }),
-    });
-    const body = (await res.json().catch(() => ({}))) as {
-      user?: { role?: string | null };
-      needsRole?: boolean;
-      message?: string;
-    };
-    if (!res.ok) {
-      fail("Popup login: this site could not finish the login", body);
-      return;
-    }
-    window.location.assign(body.needsRole ? "/choose-role" : body.user?.role === "admin" ? "/admin" : "/vip");
+    window.location.assign("/signed-in");
   });
 
   document.getElementById("identity-probe")?.addEventListener("click", async () => {
     console.info(TAG, "Level 0 probe: opening Delegate /identity/bridge.");
     try {
-      const identity = await id.requestIdentity({ minLevel: 0, mode: "popup" });
+      const identity = await probe.requestIdentity({ minLevel: 0, mode: "popup" });
       console.info(TAG, "Level 0 probe result", identity ?? { empty: true });
       show("// @engine9/id identity (Level 0)", identity ?? { empty: true });
     } catch (err) {

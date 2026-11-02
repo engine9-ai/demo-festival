@@ -5,7 +5,10 @@ public site: anonymous visitors see the lineup, schedule, and ticket prices;
 VIPs get a members-only lounge page; admins get a management interface. Built
 with Astro, backed by SQLite, deployable to Cloudflare Workers + D1.
 
-This repo is the **with-core** example. Browser-only identity (no database)
+This repo is the **with-core** example, and the reference implementation
+of the recommended way to sign people in with `@engine9/core` and Delegate
+([Sign-in](#sign-in-the-recommended-way-to-use-core-and-delegate)).
+Browser-only identity (no database)
 is [`demo-id`](../demo-id). First-time deploy writeups:
 [id](../id/docs/deploy.md) and [core](../core/docs/deploy.md) (D1 steps in
 the core guide). Festival-specific Cloudflare notes stay in
@@ -23,8 +26,8 @@ npm install
 npm run dev
 ```
 
-Dependencies are the published npm releases: `@engine9/core` ^1.10.2,
-`@engine9/id` ^1.9.7, and `@engine9/schemas` ^1.10.1. `@engine9/input-tools`
+Dependencies are the published npm releases: `@engine9/core` ^1.18.0,
+`@engine9/id` ^1.15.0, and `@engine9/schemas` ^1.11.4. `@engine9/input-tools`
 comes in with core.
 
 Open **http://localhost:3000** (or **http://localhost:3001** /
@@ -47,44 +50,50 @@ to the seed state.
   sets VIP-only), and set ticket prices. Changes appear on the public site
   immediately.
 
-### Auth endpoints
+### Sign-in: the recommended way to use core and Delegate
 
-Login is provided by **delegate**, engine9's common sign-in, via `@engine9/core`.
+**This site is the reference implementation of signing people in with
+`@engine9/core` and Delegate. Copy it.** It follows core's
+[Sign-in on a site](../core/docs/sign-in.md) to the letter:
 
-Visitors interact with Delegate through the
-[`@engine9/id` login widget](../id/README.md#the-login-widget) in the header
-of every page (`src/layouts/Layout.astro`). It is the main way in. The button
-shows the session's email and role, or "Login". Its dialog logs in with
-Google (the Delegate popup, then `POST /auth/delegate`), picks VIP or Admin
-(`POST /auth/role`), switches email (the Delegate popup with
-`prompt=select`), and logs out (`POST /auth/logout`), all on the current
-page. The server session stays the source of truth: the layout passes it to
-the widget as `user`, and the widget's hooks post to the endpoints below.
-In-page log in links (`data-open-login`) open the same dialog.
+- **One session.** core's HttpOnly `e9_session` cookie, set by core however
+  the person signed in. This site has no session code, no session cookie,
+  and no sign-in route of its own.
+- **Two ways to sign in, both core's.**
+  - The [`@engine9/id` Login widget](../id/README.md#with-a-server-session)
+    in the header of every page (`src/layouts/Layout.astro`), with
+    `core: { session: "cookie" }` (`BROWSER_CORE` in `src/lib/engine9.ts`).
+    Each sign-in starts with core's `POST /api/auth/begin`, so the Identity
+    Token carries a nonce core issued to this browser; `id.core.login()`
+    makes core check it and set the cookie. The token never touches a route
+    of this site.
+  - A plain link to core's `/api/auth/start` for browsers without
+    JavaScript (`/login`). core's `/api/auth/callback` sets the same cookie.
+- **One gate.** `src/middleware.ts` runs core's `requireRole` before any
+  page under `/vip` or `/admin` renders. It reads roles from
+  `person_segment` on every request, never from the cookie.
+  - Signed out: core's 302 to `/api/auth/start?returnTo=<this page>`.
+  - Signed in without the role: a 403 (`/denied`) that says who they are
+    signed in as and links to the gate's `changeUrl` (pick another address
+    or account). **Never a redirect to sign in**, which would loop.
+  - `fetch()` from page code gets the gate's JSON instead.
 
-This site only wires config and HTTP endpoints:
+| Route | Whose | Purpose |
+| --- | --- | --- |
+| `GET /api/auth/start?returnTo=…` | core | Redirect sign-in. What Delegate is asked for is `config.signIn` in `src/lib/engine9.ts` (Level 1, `display_name` and `email`, the festival brand) |
+| `GET /api/auth/callback` | core | Checks state and nonce, sets `e9_session`, returns to `returnTo` (`?login_error=` on failure) |
+| `POST /api/auth/begin` | core | The widget's sign-in, step 1: a state and nonce bound to this browser |
+| `POST /api/auth/login` with `cookie: true` | core | The widget's sign-in, step 2: checks them and the page's Origin, sets `e9_session` |
+| `POST /api/auth/logout` | core | `id.logout()` calls it: clears the cookie |
+| `GET /api/auth/me` | core | "Signed in as" for page code |
+| `GET /signed-in` | this site | Where a sign-in without a page to return to lands; sends the person to `/admin`, `/vip`, or `/choose-role` |
+| `GET /login` | this site | The redirect fallback, `changeSignInUrl()`, `login_error` messages, and Delegate debugging tools |
+| `/denied` | this site | The festival-styled 403, rendered from `requireRole`'s result |
+| `GET /choose-role`, `POST /auth/role` | this site, **demo only** | Pick VIP or Admin yourself, so visitors can try both. A stand-in for an operator granting the role (`npx e9core segment add`). **Do not copy this part** |
 
-| Endpoint | Purpose |
-| --- | --- |
-| `GET /login` | The Login button again, then the fallback: Identity Token (`/identity/authorize`) by redirect or popup. Required fields `display_name`, `email`; no optional fields |
-| `GET /auth/login` | Redirect login: sets a `login_state` cookie and sends the browser to Delegate with that `state` |
-| `GET /auth/delegate` | Callback: Identity Token (`?delegate_token=`). Finishes only the `state` this browser started. Any other `state` (another tab, an older attempt, an email link opened in a different browser) restarts the login once, which is silent when the person is still signed in to Delegate. It never says "expired" |
-| `POST /auth/delegate` | Same login for the header's login widget: JSON `{ delegate_token }` in, `{ user, needsRole }` out |
-| `GET /auth/change` | "Change your Delegate information": the widget's Switch email as a redirect (`prompt=select`), so the person can pick another email address |
-| `POST /auth/role` | Demo-only: grants VIP or Admin after first login. Answers JSON `{ redirect }` when asked with `Accept: application/json` |
-| `GET /choose-role` | First-time users pick VIP or Admin |
-| `POST /auth/logout` (or site logout) | Clears the local session cookie |
-
-`src/middleware.ts` reads the session on every request and redirects to
-`/login` (or `/choose-role`) before any gated page renders.
-
-`/login` and `/choose-role` are the redirect fallback (no popups, deep
-links from the middleware) and a debugging page. The footer links to
-`/login`.
-
-For how Identity Tokens, person resolution, roles-as-segments, and signed
-sessions work, see [`@engine9/core` README — Delegate
-authentication](../core/README.md#authentication).
+Everything except the last row is what any site should do. For how Identity
+Tokens, person resolution, roles-as-segments, and sessions work, see
+[`@engine9/core` README — Delegate authentication](../core/README.md#authentication).
 
 ### Roles
 
@@ -96,17 +105,17 @@ authentication](../core/README.md#authentication).
 Identity flow: [`docs/identity-flow.md`](docs/identity-flow.md).
 
 Local development: copy `.env.example` to `.env`. `SESSION_SECRET` is required.
-Point `DELEGATE_URL` at `https://delegate.network`. The callback is
-`?delegate_token=` (`response_mode=query`).
+Point `DELEGATE_URL` at `https://delegate.network`. The redirect callback is
+core's `/api/auth/callback` (`response_mode=query`).
 
 ## How it's put together
 
 ```
 migrations/            SQL schema + seed (person, ticket, artist, engine9 tables, segments)
-src/middleware.ts      Server-side gate for /vip/* and /admin/*
+src/middleware.ts      core's requireRole before /vip/* and /admin/*; the 403 page for the rest
 src/lib/roles.ts       Segment UUIDs, public/private API keys, role minLevel
-src/lib/engine9.ts     PersonWorker + delegateAuth() + createApi wiring
-src/lib/session.ts     Cookie glue around core's signed delegate session
+src/lib/engine9.ts     PersonWorker + delegateAuth() + createApi (config.signIn) + BROWSER_CORE
+src/lib/session.ts     Reads core's e9_session; display-only role helpers
 src/lib/db.ts          D1/SQLite access + row types
 src/pages/             Public pages, /login, /choose-role, /vip, /admin, auth endpoints
 src/layouts/           Shared layout, nav that reflects login state, festival styling

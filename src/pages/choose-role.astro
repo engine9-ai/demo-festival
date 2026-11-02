@@ -3,9 +3,9 @@ import Layout from "../layouts/Layout.astro";
 import { ADMIN_SEGMENT_ID, VIP_SEGMENT_ID } from "../lib/roles";
 import { canClaimRole } from "../lib/session";
 
-// Shown after every delegate login while the demo session has no role yet
-// (loadRolesOnLogin: false). Choosing a role writes it onto the session and
-// updates person_segment for API gating.
+// DEMO ONLY: self-serve roles, standing in for an operator granting one.
+// Shown to a signed-in person who holds no role yet. Choosing writes
+// person_segment (which the gate reads) and re-signs the e9_session cookie.
 const session = Astro.locals.session;
 if (!session) return Astro.redirect("/login");
 const levelError = Astro.url.searchParams.get("error") === "level";
@@ -23,8 +23,9 @@ const canAdmin = canClaimRole(session, ADMIN_SEGMENT_ID);
         You're signed in through <strong>delegate</strong> and recognized as
         <code>person_id {session.personId}</code>
         {session.level != null && <> at Identity Level <strong>{session.level}</strong></>}.
-        Pick how you'd like to use this demo session — VIP (Level 1) or Admin
-        (Level 3). Logout clears the session, so the next login will ask again.
+        Pick how you'd like to use this demo — VIP (Level 1) or Admin
+        (Level 3). On a real site an operator grants roles; nobody picks their
+        own. You can switch later in the Login dialog.
       </p>
 
       {levelError && (

@@ -1,7 +1,7 @@
 ---
 import { env } from "cloudflare:workers";
-import { canAccessVip, isAdmin, widgetUser } from "../lib/session";
-import { LOGIN_FIELDS } from "../lib/engine9";
+import { showAdmin, showVip, widgetUser } from "../lib/session";
+import { BROWSER_CORE, LOGIN_FIELDS } from "../lib/engine9";
 import { POPUP_SIGN_IN_BRAND } from "../lib/brand";
 import { ADMIN_SEGMENT_ID, ROLE_REGISTRY, VIP_SEGMENT_ID } from "../lib/roles";
 
@@ -18,6 +18,10 @@ const widget = {
   delegateUrl: env.DELEGATE_URL || "https://delegate.network",
   fields: LOGIN_FIELDS,
   brand: POPUP_SIGN_IN_BRAND,
+  // Sign in through core with its cookie session (see BROWSER_CORE).
+  core: BROWSER_CORE,
+  // Segment UUID in core's session -> the widget's role key.
+  roleKeys: { [ADMIN_SEGMENT_ID]: "admin", [VIP_SEGMENT_ID]: "vip" },
   user: widgetUser(session),
   roles: [
     {
@@ -59,10 +63,10 @@ const navLinks = [
         {navLinks.map((l) => (
           <a href={l.href} class:list={{ active: path === l.href }}>{l.label}</a>
         ))}
-        {canAccessVip(session) && (
+        {showVip(session) && (
           <a href="/vip" class:list={["vip-link", { active: path.startsWith("/vip") }]}>VIP Lounge</a>
         )}
-        {isAdmin(session) && (
+        {showAdmin(session) && (
           <a href="/admin" class:list={["admin-link", { active: path.startsWith("/admin") }]}>Admin</a>
         )}
       </nav>
@@ -89,48 +93,61 @@ const navLinks = [
 </html>
 
 <script>
+  import { createEngine9Id } from "@engine9/id";
   import { loginWidget, type LoginWidgetUser } from "@engine9/id/widget";
 
   /**
-   * One Delegate login widget for the whole site. The Identity Token from its
-   * popup goes to POST /auth/delegate, which mints this site's session; the
-   * role is picked in the same dialog (POST /auth/role).
+   * One Delegate login widget for the whole site, and the recommended way to
+   * use it on a site with a server:
+   *
+   *   - `core.session: "cookie"`: every sign-in starts with core's
+   *     `POST /api/auth/begin` (a nonce core issued to this browser), and
+   *     `id.core.login()` makes core set its HttpOnly `e9_session` cookie.
+   *     That is the session the middleware gate reads. No site route
+   *     exchanges the token, and page script never holds a session token.
+   *   - `id.logout()` ends core's session too; `onLoggedOut` reloads after
+   *     every logout request has finished.
+   *
+   * Role picking (`onRoleChange`, POST /auth/role) is demo-only self-serve.
    */
   const slot = document.querySelector<HTMLElement>("[data-e9-login-widget]");
   if (slot) {
-    const config = JSON.parse(slot.dataset.widget || "{}");
+    const { core, roleKeys, ...config } = JSON.parse(slot.dataset.widget || "{}");
 
-    type ServerAnswer = {
-      message?: string;
-      detail?: string;
-      user?: LoginWidgetUser;
-      redirect?: string;
-    };
-
-    async function readJson(res: Response): Promise<ServerAnswer> {
-      const body = (await res.json().catch(() => ({}))) as ServerAnswer;
+    async function readJson(res: Response): Promise<{ message?: string; detail?: string; redirect?: string }> {
+      const body = (await res.json().catch(() => ({}))) as { message?: string; detail?: string; redirect?: string };
       if (!res.ok) {
         const message = body.message || `The server answered ${res.status}.`;
-        // The server's detail is the real cause (the message is the friendly
-        // summary), so show both.
         const detail = body.detail && body.detail !== message ? body.detail : "";
         throw new Error(detail ? `${message} Detail: ${detail}` : message);
       }
       return body;
     }
 
+    const id = createEngine9Id({
+      delegateUrl: config.delegateUrl,
+      brand: config.brand,
+      storage: "session",
+      core,
+    });
+
     const widget = loginWidget({
       ...config,
+      id,
       target: slot,
-      storage: "session",
       siteName: "Solstice Wave",
-      async onLogin(_identity, token) {
-        const res = await fetch("/auth/delegate", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ delegate_token: token }),
-        });
-        return (await readJson(res)).user;
+      async onLogin(identity): Promise<LoginWidgetUser> {
+        // core verifies the token, checks the nonce it issued, and sets e9_session.
+        const { session } = await id.core!.login();
+        const held = (session.roles ?? []).map((roleId: string) => roleKeys[roleId]).filter(Boolean);
+        // The header's VIP and Admin links are rendered on the server, by the cookie.
+        if (held.length) window.location.reload();
+        return {
+          email: (session.email as string | undefined) ?? (identity.fields?.email as string | undefined) ?? null,
+          role: held[0] ?? null,
+          level: session.level ?? identity.level,
+          twoFactor: identity.auth?.two_factor === true,
+        };
       },
       async onRoleChange(roleId) {
         const form = new FormData();
@@ -142,8 +159,7 @@ const navLinks = [
         });
         window.location.assign((await readJson(res)).redirect ?? "/");
       },
-      async onLogout() {
-        await fetch("/auth/logout", { method: "POST", keepalive: true });
+      onLoggedOut() {
         window.location.assign("/");
       },
     });

@@ -1,13 +1,12 @@
-import type { AstroCookies } from "astro";
 import {
   sessionHasRole,
   sessionPrimaryRole,
-  sessionNeedsRole,
   type DelegateSession,
   type CredentialLevel,
 } from "@engine9/core/auth/delegate";
+import { sessionFromRequest } from "@engine9/core/auth/gate";
 import { meetsRequiredAuth } from "@engine9/core/auth/policy";
-import { delegateAuth, loginIdentityUrl } from "./engine9";
+import { delegateAuth } from "./engine9";
 import {
   ADMIN_SEGMENT_ID,
   VIP_SEGMENT_ID,
@@ -16,77 +15,26 @@ import {
 } from "./roles";
 
 /**
- * Thin cookie glue around @engine9/core's delegate auth. All real logic --
- * Identity Token verification, person dedupe (id_type "delegate"), role lookup from
- * person_segment, token signing/verification -- lives in core; this file only
- * moves the signed token in and out of the Astro cookie jar.
+ * Reading the Core Session. There is no session code of this site's own:
+ * core signs people in (`/api/auth/start` and `/api/auth/callback` for a
+ * redirect, `/api/auth/begin` and `/api/auth/login` with `cookie: true` for
+ * the Login widget), sets the HttpOnly `e9_session` cookie, and verifies it
+ * here. The middleware decides access with `requireRole`, which reads roles
+ * from `person_segment` on each request.
  *
- * Session.roles holds segment UUIDs (role_ids). Display labels come from
- * ROLE_REGISTRY.
+ * The helpers below read the roles copied into the session. They are for
+ * display only (which nav links to show, the widget's role badge), never for
+ * an access decision. Session.roles holds segment UUIDs (role_ids); display
+ * labels come from ROLE_REGISTRY.
  */
 
-/** Session payload minted by core's createDelegateAuth().login(). */
+/** Session payload minted by core. */
 export type Session = DelegateSession;
 export type { CredentialLevel };
 
-/** Astro/Lucia community convention; cookie glue stays here — core is host-agnostic. */
-const COOKIE_NAME = "session";
-const SESSION_TTL_SECONDS = 60 * 60 * 24; // 1 day
-
-export function getSession(cookies: AstroCookies): Session | null {
-  const token = cookies.get(COOKIE_NAME)?.value;
-  if (!token) return null;
-  return delegateAuth().verify(token);
-}
-
-export function setSession(cookies: AstroCookies, session: Session): void {
-  cookies.set(COOKIE_NAME, delegateAuth().issueToken(session), {
-    path: "/",
-    httpOnly: true,
-    sameSite: "lax",
-    secure: import.meta.env.PROD,
-    maxAge: SESSION_TTL_SECONDS,
-  });
-}
-
-export function clearSession(cookies: AstroCookies): void {
-  cookies.delete(COOKIE_NAME, { path: "/" });
-  // Drop the old demo-specific name if present.
-  cookies.delete("festival_session", { path: "/" });
-}
-
-/**
- * The `state` of the redirect login this browser started. `/auth/delegate`
- * finishes only the request whose `state` matches; anything else answers a
- * request this browser does not have (another tab, an older attempt, an email
- * link opened in a different browser) and starts the login again.
- */
-const LOGIN_STATE_COOKIE = "login_state";
-const LOGIN_STATE_PATH = "/auth/delegate";
-const LOGIN_STATE_TTL_SECONDS = 60 * 30;
-
-/** Remember a fresh `state` and return the Delegate authorize URL that carries it. */
-export function startLogin(
-  cookies: AstroCookies,
-  origin: string,
-  opts: { prompt?: "select"; again?: boolean } = {},
-): string {
-  const state = crypto.randomUUID();
-  cookies.set(LOGIN_STATE_COOKIE, state, {
-    path: LOGIN_STATE_PATH,
-    httpOnly: true,
-    sameSite: "lax",
-    secure: import.meta.env.PROD,
-    maxAge: LOGIN_STATE_TTL_SECONDS,
-  });
-  return loginIdentityUrl(origin, { ...opts, state });
-}
-
-/** The pending `state`, if any. Clears it: each `state` finishes one login. */
-export function takeLoginState(cookies: AstroCookies): string | null {
-  const state = cookies.get(LOGIN_STATE_COOKIE)?.value || null;
-  if (state) cookies.delete(LOGIN_STATE_COOKIE, { path: LOGIN_STATE_PATH });
-  return state;
+/** The verified Core Session in this request's `e9_session` cookie, or null. */
+export function getSession(request: Request): Promise<Session | null> {
+  return sessionFromRequest({ auth: delegateAuth(), request }) as Promise<Session | null>;
 }
 
 /** Prefer the Identity Token `level`; infer from auth when an older session has none. */
@@ -111,23 +59,25 @@ function roleAuthOk(session: Session | null, roleId: string): boolean {
   return meetsRequiredAuth(role.requiredAuth, credentialLevel(session));
 }
 
-/** Can this session see VIP content? Admins can, so they can preview it. */
-export const canAccessVip = (session: Session | null): boolean => {
+/** Display: show VIP links. Admins see them too, so they can preview VIP pages. */
+export const showVip = (session: Session | null): boolean => {
   if (sessionHasRole(session, ADMIN_SEGMENT_ID) && roleAuthOk(session, ADMIN_SEGMENT_ID)) {
     return true;
   }
   return sessionHasRole(session, VIP_SEGMENT_ID) && roleAuthOk(session, VIP_SEGMENT_ID);
 };
 
-export const isAdmin = (session: Session | null): boolean =>
+/** Display: show Admin links. */
+export const showAdmin = (session: Session | null): boolean =>
   sessionHasRole(session, ADMIN_SEGMENT_ID) && roleAuthOk(session, ADMIN_SEGMENT_ID);
 
+/** Demo self-serve roles: may this sign-in pick `roleId` (its Identity Level is enough)? */
 export const canClaimRole = (session: Session | null, roleId: string): boolean =>
   Boolean(session) && roleAuthOk(session, roleId);
 
-/** Logged in via delegate but hasn't picked (or been granted) a role yet. */
-export const needsRole = (session: Session | null): boolean =>
-  sessionNeedsRole(session);
+/** Signed in, but holding neither role yet: the demo offers /choose-role. */
+export const holdsNoRole = (session: Session | null): boolean =>
+  Boolean(session) && !sessionHasRole(session, ADMIN_SEGMENT_ID) && !sessionHasRole(session, VIP_SEGMENT_ID);
 
 /**
  * What the header's Delegate login widget shows: the session's email, its

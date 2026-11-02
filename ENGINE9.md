@@ -184,24 +184,29 @@ in `src/lib/engine9.ts` to the R2 sink.
 
 ### Stage 8 — Delegate authentication
 
-Login is provided by **delegate**, engine9's common sign-in, via
-`@engine9/core/auth/delegate` (`createDelegateAuth`). This site only wires
-config and endpoints:
+Login is provided by **delegate**, engine9's common sign-in, through
+`@engine9/core`, the recommended way ([core: Sign-in on a
+site](../core/docs/sign-in.md)). Every sign-in route is core's, and the
+session is core's HttpOnly `e9_session` cookie. This site only wires
+configuration and two pages:
 
 - `src/lib/roles.ts` — VIP (`minLevel: 1`) and Admin (`minLevel: 3`)
-- `src/lib/engine9.ts` — `delegateAuth()` config (delegate URL, session
-  secret, plugin id, role registry)
-- `src/layouts/Layout.astro` — the `@engine9/id` login widget in the
-  header, the main way visitors log in, switch email, pick a role, and log
-  out (see Stage 9)
-- `GET /auth/login` — redirect login: a `login_state` cookie, then Delegate
-  with that `state`
-- `GET /auth/delegate` — callback: Identity Token (`?delegate_token=`).
-  A `state` this browser did not start means "sign in again", not
-  "expired": it restarts the login once
-- `POST /auth/delegate` — the same login for the widget (JSON)
-- `POST /auth/role` + `/choose-role` — demo-only first-login role picker
-- `src/middleware.ts` — gates `/vip` and `/admin` from the session
+- `src/lib/engine9.ts` — `delegateAuth()` (delegate URL, session secret,
+  plugin id, role registry), `createApi` with `config.signIn` (what Delegate
+  is asked for: Level 1, `display_name` and `email`, the festival brand),
+  and `BROWSER_CORE` (`session: "cookie"`) for the browser
+- `src/middleware.ts` — core's `requireRole` before `/vip` and `/admin`;
+  signed out goes to `/api/auth/start`, signed in without the role gets
+  `/denied` (403)
+- `src/pages/denied.astro` — the 403, rendered from the gate's result
+- `src/pages/signed-in.astro` — where a sign-in with no page to return to
+  lands
+- `POST /auth/role` + `/choose-role` — **demo only**: pick your own role
+
+core serves, under `/api`: `GET /auth/start` and `GET /auth/callback` (the
+redirect sign-in), `POST /auth/begin` and `POST /auth/login` with
+`cookie: true` (the widget's sign-in), `GET /auth/me`, and
+`POST /auth/logout`.
 
 See [`@engine9/core` README — Delegate
 authentication](../core/README.md#authentication) and
@@ -213,16 +218,19 @@ authentication](../core/README.md#authentication) and
 ### Stage 9 — Identity Tokens and `@engine9/id`
 
 Visitors use the `@engine9/id` login widget (`@engine9/id/widget`) in the
-header. The layout renders the server session (`widgetUser(session)` in
-`src/lib/session.ts`) into the widget as `user`. The widget's hooks call this
-site's routes:
+header, with an `@engine9/id` client configured with
+`core: { apiUrl: "/api", publicApiKey, session: "cookie" }`. The layout
+renders the server session (`widgetUser(session)` in `src/lib/session.ts`)
+into the widget as `user`. The widget's hooks:
 
-- `onLogin(identity, token)` — `POST /auth/delegate` with `{ delegate_token }`;
-  answers `{ user, needsRole }`
-- `onRoleChange(roleId)` — `POST /auth/role` with `Accept: application/json`;
-  answers `{ redirect }`
-- `onLogout()` — `POST /auth/logout` (`keepalive`), started in the same click
-  as the Delegate logout popup
+- `onLogin()` — `id.core.login()`. core checks the nonce it issued at
+  `POST /api/auth/begin` and the page's Origin, sets `e9_session`, and
+  returns `{ session }`. A person who already holds a role gets a reload,
+  so the server renders their links.
+- `onRoleChange(roleId)` — demo only: `POST /auth/role` with
+  `Accept: application/json`; answers `{ redirect }`
+- `onLoggedOut()` — navigates home after `id.logout()` has ended core's
+  session (and Delegate's, when asked)
 
 The button reads **Logging in…** (with a spinner) from the click, and again
 from the first paint of the return from Delegate until `onLogin` answers, so
@@ -237,19 +245,11 @@ dialog for them, and their `href="/login"` is the no-JavaScript fallback.
 
 Underneath, every login is `GET /identity/authorize` or the
 `/identity/bridge` popup (JWT, public JWKS). `/login` leads with the same
-Login button, then keeps the redirect flow (`GET /auth/login`, landing on
-`GET /auth/delegate`) and a popup (`requestIdentity`, then
-`POST /auth/delegate`) as fallbacks. Registration uses the seeded `e9publickey_` (scope `public`) on
-`POST /people`.
-
-`auth.identityUrl({ returnTo, minLevel, fields: ["display_name", "email"], brand, state, responseMode: "query" })`
-builds the authorize URL (`startLogin()` in `src/lib/session.ts` sets the
-`state` cookie). `brand` is `REDIRECT_SIGN_IN_BRAND` from
-`src/lib/brand.ts`: the site's colors, and `google: "skip"`, so delegate
-goes straight to Google. Those two fields are required. The login sends
-no optional fields. The widget's **Switch email** and `GET /auth/change`
-send the same request with `prompt: "select"` ("Change your Delegate
-information"), so a signed-in person can pick another email address. See
+Login button, then keeps core's redirect sign-in (`signInUrl("/signed-in")`)
+and a popup (`requestIdentity`, then `id.core.login()`) as fallbacks.
+**Change your Delegate information** is `changeSignInUrl("/signed-in")`
+(`prompt=select`). Registration uses the seeded `e9publickey_` (scope
+`public`) on `POST /people`. See
 [`docs/identity-flow.md`](docs/identity-flow.md).
 
 ## What stays on the engine9 server

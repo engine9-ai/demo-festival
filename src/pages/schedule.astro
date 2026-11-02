@@ -1,7 +1,7 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import { getDB, type Performance } from "../lib/db";
-import { canAccessVip } from "../lib/session";
+import { showVip } from "../lib/session";
 
 const db = getDB();
 
@@ -17,7 +17,7 @@ const { results: sets } = await db
   .all<Performance>();
 
 const days = [...new Set(sets.map((s) => s.day))];
-const vip = canAccessVip(Astro.locals.session);
+const vip = showVip(Astro.locals.session);
 ---
 
 <Layout title="Schedule">

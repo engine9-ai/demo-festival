@@ -1,0 +1,52 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { holdsNoRole } from "../lib/session";
+
+/**
+ * The 403 for a signed-in person without the role a page needs. The
+ * middleware rewrites to this page (status 403, the URL unchanged) with
+ * `requireRole`'s result in `Astro.locals.denied`, so this page only renders
+ * it. core's own 403 page says the same thing unstyled; a site that wants its
+ * look builds this from the same four fields.
+ *
+ * The one thing it never does is send the person to sign in again.
+ */
+const denied = Astro.locals.denied;
+if (!denied) return Astro.redirect("/");
+const session = Astro.locals.session;
+const strongerSignIn = denied.reason === "auth_not_met";
+// Demo only: roles here are self-serve, standing in for an operator granting one.
+const offerRolePicker = !strongerSignIn && holdsNoRole(session);
+---
+
+<Layout title="Not allowed">
+  <div class="denied-wrap">
+    <div class="card denied-card">
+      <h1>You don't have access to this page</h1>
+      <p>
+        {denied.email
+          ? <>You are signed in as <strong>{denied.email}</strong>.</>
+          : <>You are signed in, but without a confirmed email address.</>}
+        {" "}
+        {strongerSignIn
+          ? <>This page needs a stronger sign-in for {denied.role} than this one, such as Google instead of an emailed link.</>
+          : <>That sign-in does not have {denied.role} access.</>}
+      </p>
+      <div class="actions">
+        <a class="btn btn-primary" href={denied.changeUrl}>Use a different email or account</a>
+        {offerRolePicker && <a class="btn btn-ghost" href="/choose-role">Choose a role</a>}
+      </div>
+      <p class="muted fine">
+        What you see on this site follows the address you sign in with. If this
+        is the right address, ask the festival team to give it access.
+      </p>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .denied-wrap { display: flex; justify-content: center; padding-top: 2rem; }
+  .denied-card { width: min(32rem, 100%); }
+  .actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 1.25rem 0 1rem; }
+  .fine { font-size: 0.85rem; }
+</style>
