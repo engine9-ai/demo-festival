@@ -137,8 +137,7 @@ Two small files:
 
 - `src/lib/engine9.ts` — builds the client: `PersonWorker` on the `DB` D1
   binding with `createPluginRegistry` over `@engine9/core/plugins/site`,
-  `SqlApiKeyStore` (swap for `KVApiKeyStore` + a KV namespace without
-  touching endpoints), `BatchLogger`, and `createApi` with this site's plugin
+  `SqlApiKeyStore` (keys in the `api_key` table), `BatchLogger`, and `createApi` with this site's plugin
   id, upsertable tables, and named reads (`vip-performances` gated by the VIP
   segment, `lineup` public). The first people write or login calls
   `installDefaultPlugins()` so the published person schema plugins (the inbound

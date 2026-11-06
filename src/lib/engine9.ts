@@ -143,8 +143,7 @@ export const BROWSER_CORE = {
 
 export function createEngine9Api() {
   const worker = createPersonWorker();
-  // Canonical: api_key table via SqlApiKeyStore (works on D1/SQLite/MySQL).
-  // Cloudflare KVApiKeyStore is optional and unused here.
+  // Keys live in the api_key table (SqlApiKeyStore; D1, SQLite, or MySQL).
   const keyStore = new SqlApiKeyStore({ worker });
   // Cloudflare-style batch logging. The demo has no R2 bucket, so each
   // request's batch goes to the Worker log stream (wrangler tail /

@@ -20,3 +20,7 @@ node_modules/
 
 # local D1 exports
 backup-festival-db-*.sql
+
+# local secrets written by e9core setup-keys
+.dev.vars
+.e9core
