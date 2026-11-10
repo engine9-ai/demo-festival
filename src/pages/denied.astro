@@ -33,7 +33,7 @@ const offerRolePicker = !strongerSignIn && holdsNoRole(session);
         {levelGate
           ? <>This page needs a Level {denied.requiredLevel} sign-in: an email address you have proven you receive. This sign-in is {typeof denied.level === "number" ? <>Level {denied.level}</> : "below that"}.</>
           : strongerSignIn
-          ? <>This page needs a stronger sign-in for {denied.role} than this one, such as Google instead of an emailed code.</>
+          ? <>This page needs a stronger sign-in for {denied.role} than this one, such as Google or Microsoft instead of an emailed code.</>
           : <>That sign-in does not have {denied.role} access.</>}
       </p>
       <div class="actions">

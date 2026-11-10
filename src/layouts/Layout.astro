@@ -70,8 +70,12 @@ const navLinks = [
           <a href="/admin" class:list={["admin-link", { active: path.startsWith("/admin") }]}>Admin</a>
         )}
       </nav>
-      <div class="session-box" data-e9-login-widget data-widget={JSON.stringify(widget)}>
-        <noscript><a class="btn btn-ghost" href="/login">Log in</a></noscript>
+      <div class="login-area">
+        <span class="login-caption">Default login</span>
+        <div class="session-box" data-e9-login-widget data-widget={JSON.stringify(widget)}>
+          <noscript><a class="btn btn-ghost" href="/login">Log in</a></noscript>
+        </div>
+        <a class:list={["other-logins", { active: path === "/login" }]} href="/login">Other login options</a>
       </div>
     </header>
 
@@ -86,7 +90,8 @@ const navLinks = [
         common sign-in; access levels are this site's own
         segments.
         Log in with the <strong>Login</strong> button at the top of every page.
-        <a href="/login">Login without popups, and Delegate debugging</a>.
+        <a href="/login">Other login options</a>: without popups, an emailed
+        code (Level 2), and Delegate debugging.
       </p>
     </footer>
   </body>
@@ -273,7 +278,27 @@ const navLinks = [
   .site-header nav a.vip-link { color: var(--vip); }
   .site-header nav a.admin-link { color: var(--admin); }
 
-  .session-box { margin-left: auto; display: flex; align-items: center; gap: 0.6rem; }
+  /* "Default login" (the widget) beside "Other login options" (/login: no popup, Level 2, debugging). */
+  .login-area { margin-left: auto; display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+  .login-caption {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  /* Signed in, the button shows who: the label no longer applies. */
+  .login-area:has(.e9-login-widget[data-state="signed-in"]) .login-caption { display: none; }
+  .session-box { display: flex; align-items: center; gap: 0.6rem; }
+  .other-logins {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-decoration: none;
+    padding-left: 0.6rem;
+    border-left: 1px solid var(--border);
+  }
+  .other-logins:hover, .other-logins.active { color: var(--text); }
 
   /* Delegate login widget: dark festival colors, role badge like .badge below. */
   .e9-login-widget {

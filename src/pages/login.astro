@@ -45,7 +45,8 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
       The <strong>Login</strong> button at the top of every page (option 1)
       is how a real site logs people in. Option 2 is the fallback for
       browsers without JavaScript or popups. Option 3 signs in with an
-      emailed code instead of Google, at Level 2. Options 4 and 5 are
+      emailed code instead of a provider such as Google, Microsoft, or
+      Facebook, at Level 2. Options 4 and 5 are
       debugging tools that show what delegate knows about this browser.
     </p>
 
@@ -80,7 +81,8 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
           <p>
             The <strong>Login</strong> button in the header is
             <code>loginWidget()</code> from <code>@engine9/id/widget</code>.
-            One dialog on this page logs in with Google, switches the email
+            One dialog on this page logs in with the providers Delegate offers
+            (Google, and Microsoft or Facebook where enabled), switches the email
             address this site sees, picks VIP or Admin, and logs out. It runs
             with <code>core: {"{"} session: "cookie" {"}"}</code>, the
             recommended setting: core issues the nonce
@@ -91,8 +93,8 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
           </p>
           <p class="outcome">
             <strong>You’ll see:</strong> delegate’s sign-in if you are not
-            signed in there, in this site’s colors with a
-            <strong>Continue with Google</strong> button
+            signed in there, in this site’s colors with a button for each
+            provider, such as <strong>Continue with Google</strong>
             (<code>brand</code> in <code>src/lib/brand.ts</code>), then its
             share page the first time. The share
             page lists your email addresses so you can pick one. After that,
@@ -103,8 +105,8 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
           <p>
             <strong>Switch email</strong> in the dialog asks delegate again
             with <code>prompt=select</code>, so the share page always appears.
-            Use it to pick a different email address, add one, or switch
-            Google accounts.
+            Use it to pick a different email address, add one, or switch to
+            another account or provider.
           </p>
           <div class="btn-row">
             <a class="btn btn-primary" href={loginUrl} data-open-login>Login</a>
@@ -120,7 +122,8 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
             Delegate this site's <code>config.signIn</code>
             (<code>min_level=1</code>, <code>display_name</code> and
             <code>email</code>, <code>brand_google=skip</code> so a signed-out
-            visitor goes straight to Google), and
+            visitor goes straight to the provider when Delegate offers only
+            one), and
             <code>/api/auth/callback</code> sets the same
             <code>e9_session</code> cookie. <strong>Log in (popup)</strong>
             calls <code>requestIdentity()</code> and
@@ -147,9 +150,10 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
 
         <article class="card option" id="level-2">
           <h2>3. Level 2: an emailed code</h2>
-          <p class="tag">login_level=2 · min_level=2 · no Google needed</p>
+          <p class="tag">login_level=2 · min_level=2 · no provider account needed</p>
           <p>
-            For people without Google. The same popup sign-in as option 2,
+            For people without a Google, Microsoft, or Facebook account, or
+            who would rather not use one. The same popup sign-in as option 2,
             asking Delegate for <code>minLevel: 2</code> and
             <code>loginLevel: 2</code>: Delegate's sign-in screen gets an
             email field, mails a 6-digit code, and the code proves the person
@@ -162,7 +166,8 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
             <a href="/level-2">the Level 2 page</a>, which the middleware opens
             only for a sign-in at Level 2 or above. A Level 2 sign-in does not
             open <code>/admin</code>: Admin needs Level 3. If you are already
-            signed in to Delegate with Google, it returns that (Level 3)
+            signed in to Delegate with Google, Microsoft, or Facebook, it
+            returns that sign-in (Level 3)
             instead; log out first to see the email screen.
           </p>
           <p>
@@ -236,7 +241,7 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
           <p>
             <strong>Sign in to Delegate only</strong> opens Delegate’s own
             <code>/login</code> with no <code>return_to</code> back to this
-            site. It signs you in to Delegate (UNID ↔ Google) but does
+            site. It signs you in to Delegate (UNID ↔ your provider account) but does
             <em>not</em> log you in here.
           </p>
           <p class="outcome">
