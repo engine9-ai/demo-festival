@@ -108,7 +108,10 @@ Authentication is already wired through **delegate**, engine9's common sign-in
 in `src/middleware.ts`. Login requests required fields `display_name` and
 `email`, and no optional fields.
 
-Set `SESSION_SECRET` with `wrangler secret put SESSION_SECRET`. A signed-in
+Set `SESSION_SECRET` to 64 hex characters made by a machine, never typed:
+`openssl rand -hex 32 | tr -d '\n' | npx wrangler secret put SESSION_SECRET`.
+`@engine9/core` 1.19+ refuses any other value, and every page answers 500.
+Replacing it signs everyone out. A signed-in
 person with no role is offered `/choose-role` (VIP needs Level 1, Admin
 Level 3); that picker is demo policy, not a Delegate or core feature.
 

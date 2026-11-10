@@ -105,7 +105,8 @@ Tokens, person resolution, roles-as-segments, and sessions work, see
 
 Identity flow: [`docs/identity-flow.md`](docs/identity-flow.md).
 
-Local development: copy `.env.example` to `.env`. `SESSION_SECRET` is required.
+Local development: copy `.env.example` to `.env`. `SESSION_SECRET` is required:
+64 hex characters from `openssl rand -hex 32` (core refuses anything else).
 Point `DELEGATE_URL` at `https://delegate.network`. The redirect callback is
 core's `/api/auth/callback` (`response_mode=query`).
 
