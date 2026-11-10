@@ -44,8 +44,9 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
       This site logs in with <strong>delegate</strong>, engine9's common sign-in.
       The <strong>Login</strong> button at the top of every page (option 1)
       is how a real site logs people in. Option 2 is the fallback for
-      browsers without JavaScript or popups. Options 3 and 4 are debugging
-      tools that show what delegate knows about this browser.
+      browsers without JavaScript or popups. Option 3 signs in with an
+      emailed code instead of Google, at Level 2. Options 4 and 5 are
+      debugging tools that show what delegate knows about this browser.
     </p>
 
     {session && (
@@ -144,8 +145,46 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
           </div>
         </article>
 
+        <article class="card option" id="level-2">
+          <h2>3. Level 2: an emailed code</h2>
+          <p class="tag">login_level=2 · min_level=2 · no Google needed</p>
+          <p>
+            For people without Google. The same popup sign-in as option 2,
+            asking Delegate for <code>minLevel: 2</code> and
+            <code>loginLevel: 2</code>: Delegate's sign-in screen gets an
+            email field, mails a 6-digit code, and the code proves the person
+            receives mail at that address. That is Level 2 (Contact
+            Confirmed). Core then sets the same <code>e9_session</code> cookie.
+          </p>
+          <p class="outcome">
+            <strong>You’ll see:</strong> Delegate's sign-in with an email field,
+            then a code in your inbox. Then
+            <a href="/level-2">the Level 2 page</a>, which the middleware opens
+            only for a sign-in at Level 2 or above. A Level 2 sign-in does not
+            open <code>/admin</code>: Admin needs Level 3. If you are already
+            signed in to Delegate with Google, it returns that (Level 3)
+            instead; log out first to see the email screen.
+          </p>
+          <p>
+            This needs JavaScript: core's no-JavaScript
+            <code>/api/auth/start</code> always asks for this site's one
+            <code>config.signIn</code> (Level 1).
+          </p>
+          <div class="btn-row">
+            <button
+              class="btn btn-primary"
+              type="button"
+              id="identity-level-2"
+              data-fields={LOGIN_FIELDS.join(",")}
+            >
+              Sign in with an emailed code (Level 2)
+            </button>
+            <a class="btn btn-ghost option-ghost" href="/level-2">Open the Level 2 page</a>
+          </div>
+        </article>
+
         <article class="card option">
-          <h2>3. Who am I (debug, no login)</h2>
+          <h2>4. Who am I (debug, no login)</h2>
           <p class="tag">Pre-login identity</p>
           <p>
             Asks Delegate who this browser already is — <code>unid</code> and
@@ -192,7 +231,7 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
         </article>
 
         <article class="card option">
-          <h2>4. Delegate’s own sign-in (debug)</h2>
+          <h2>5. Delegate’s own sign-in (debug)</h2>
           <p class="tag">Delegate only · no festival session</p>
           <p>
             <strong>Sign in to Delegate only</strong> opens Delegate’s own
@@ -203,7 +242,7 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
           <p class="outcome">
             <strong>You’ll see:</strong> Delegate’s sign-in in a new tab. This
             demo’s header stays logged out until you use its Login button.
-            Option 3’s popup bridge will then report <code>loggedIn: true</code>.
+            Option 4’s popup bridge will then report <code>loggedIn: true</code>.
           </p>
           <a class="btn btn-ghost option-ghost" href={directDelegateLoginUrl} target="_blank" rel="noreferrer">
             Sign in to Delegate only
@@ -399,6 +438,40 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
       return;
     }
     window.location.assign("/signed-in");
+  });
+
+  document.getElementById("identity-level-2")?.addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    const raw = btn instanceof HTMLElement ? btn.dataset.fields || "" : "";
+    const fields = raw.split(",").map((name) => name.trim()).filter(Boolean);
+    console.info(TAG, "Level 2 login: opening Delegate /identity/bridge with login_level=2.", { delegateUrl, fields });
+    let identity;
+    try {
+      identity = await id.requestIdentity({
+        minLevel: 2,
+        loginLevel: 2,
+        mode: "popup",
+        fields,
+      });
+    } catch (err) {
+      fail("Level 2 login failed in @engine9/id (Delegate popup)", err);
+      return;
+    }
+    if (!identity) {
+      console.warn(TAG, "The browser blocked the popup; @engine9/id is sending this page to Delegate instead.");
+      return;
+    }
+    console.info(TAG, "Level 2 login: Delegate returned a verified Identity Token.", {
+      level: identity.level,
+      exp: identity.exp,
+    });
+    try {
+      await id.core!.login();
+    } catch (err) {
+      fail("Level 2 login: core could not finish the login", err);
+      return;
+    }
+    window.location.assign("/level-2");
   });
 
   document.getElementById("identity-probe")?.addEventListener("click", async () => {

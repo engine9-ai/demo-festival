@@ -26,7 +26,10 @@ that way:
   `delegate_token`.
 - **Access is core's `requireRole`, in `src/middleware.ts`.** Never decide
   access from the roles copied into the session; `showVip`/`showAdmin` in
-  `src/lib/session.ts` are for display only.
+  `src/lib/session.ts` are for display only. A page that needs only an
+  Identity Level (`LEVEL_GATES`, `/level-2`) still signs in through
+  `requireRole` (no role) and checks the Level with core's
+  `meetsRequiredAuth` on the verified session, never `inferredLevel`.
 - **A signed-in person without the role gets a 403** (`/denied`, rendered
   from the gate's result, with its `changeUrl`). Never redirect them to sign
   in: Delegate returns the same address and they loop.

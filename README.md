@@ -26,8 +26,8 @@ npm install
 npm run dev
 ```
 
-Dependencies are the published npm releases: `@engine9/core` ^1.18.0,
-`@engine9/id` ^1.15.0, and `@engine9/schemas` ^1.11.4. `@engine9/input-tools`
+Dependencies are the published npm releases: `@engine9/core` ^1.20.0,
+`@engine9/id` ^1.16.0, and `@engine9/schemas` ^1.13.0. `@engine9/input-tools`
 comes in with core.
 
 Open **http://localhost:3000** (or **http://localhost:3001** /
@@ -87,7 +87,8 @@ to the seed state.
 | `POST /api/auth/logout` | core | `id.logout()` calls it: clears the cookie |
 | `GET /api/auth/me` | core | "Signed in as" for page code |
 | `GET /signed-in` | this site | Where a sign-in without a page to return to lands; sends the person to `/admin`, `/vip`, or `/choose-role` |
-| `GET /login` | this site | The redirect fallback, `changeSignInUrl()`, `login_error` messages, and Delegate debugging tools |
+| `GET /login` | this site | The redirect fallback, `changeSignInUrl()`, a Level 2 sign-in with an emailed code (`loginLevel: 2`), `login_error` messages, and Delegate debugging tools |
+| `GET /level-2` | this site | Opens for any sign-in at Level 2 or above, no role needed (`LEVEL_GATES`: `requireRole` with no role, then core's `meetsRequiredAuth`) |
 | `/denied` | this site | The festival-styled 403, rendered from `requireRole`'s result |
 | `GET /choose-role`, `POST /auth/role` | this site, **demo only** | Pick VIP or Admin yourself, so visitors can try both. A stand-in for an operator granting the role (`npx e9core segment add`). **Do not copy this part** |
 

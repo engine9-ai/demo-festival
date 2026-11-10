@@ -12,6 +12,9 @@ declare namespace App {
       role: string;
       email: string | null;
       changeUrl: string;
+      /** Set for a Level gate (`LEVEL_GATES`): the Level the page needs, and this sign-in's. */
+      requiredLevel?: number;
+      level?: number | null;
     };
     /** Set by @astrojs/cloudflare on each request (see createLocals). */
     cfContext?: ExecutionContext;

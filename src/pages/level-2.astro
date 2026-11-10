@@ -1,0 +1,105 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { primaryRole } from "../lib/session";
+
+/**
+ * Proof of a Level 2 sign-in. The middleware's Level gate (`LEVEL_GATES` in
+ * `src/lib/roles.ts`) runs before this page renders: signed-out visitors went
+ * to `/api/auth/start`, and a sign-in below Level 2 got the 403 page. No role
+ * is needed, only the Level in the verified Core Session.
+ *
+ * The Level shown is the one Delegate signed into the Identity Token, copied
+ * by core into `e9_session` at sign-in. Nothing here infers it.
+ */
+const session = Astro.locals.session!;
+const level = session.level!;
+const provider = session.auth?.signInProvider ?? null;
+
+const HOW: Record<string, string> = {
+  emailLink: "an emailed code or sign-in link",
+  "google.com": "Google",
+  "facebook.com": "Facebook",
+  "microsoft.com": "Microsoft",
+};
+const how = provider ? HOW[provider] ?? provider : null;
+
+const LEVELS = [
+  { n: 0, name: "Inferred", what: "No Grant: Delegate knows only this browser." },
+  { n: 1, name: "Provided", what: "Shared fields, none of them confirmed." },
+  { n: 2, name: "Contact Confirmed", what: "A confirmed email address, such as an emailed code or link." },
+  { n: 3, name: "Trusted Provider Confirmed", what: "A provider Delegate trusts, such as Google." },
+  { n: 4, name: "Trusted Provider Strongly Confirmed", what: "Level 3 plus two-factor." },
+];
+---
+
+<Layout title="Level 2">
+  <p class="kicker">Level 2 or higher · gated server-side · no role needed</p>
+  <h1>You have <span class="gradient-text">Level {level}</span> access</h1>
+  <p class="muted">
+    This page renders only for a sign-in at Identity Level 2 or above. The
+    check runs in <code>src/middleware.ts</code> before the page is built:
+    core's <code>requireRole</code> with no role for the sign-in, then core's
+    <code>meetsRequiredAuth({"{"} minLevel: 2 {"}"})</code> on the session.
+    Admin needs Level 3, so an email-code sign-in opens this page but not
+    <code>/admin</code>.
+  </p>
+
+  <div class="grid grid-2" style="margin-top: 1.5rem;">
+    <div class="card">
+      <h2 style="margin-top: 0;">This sign-in</h2>
+      <table>
+        <tbody>
+          <tr><th>Level</th><td><strong>{level}</strong></td></tr>
+          <tr><th>Signed in with</th><td>{how ?? "—"}{session.auth?.twoFactor ? " · 2FA" : ""}</td></tr>
+          <tr><th>Email</th><td>{session.email ?? "—"}</td></tr>
+          <tr><th>person_id</th><td>{session.personId}</td></tr>
+          <tr><th>Role</th><td>{primaryRole(session)}</td></tr>
+        </tbody>
+      </table>
+      {level > 2 && (
+        <p class="muted fine">
+          Higher Levels include the lower ones. To see this page at exactly
+          Level 2, log out and use <a href="/login#level-2">option 3 on the
+          login page</a> (an emailed code).
+        </p>
+      )}
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top: 0;">Identity Levels</h2>
+      <ul class="levels">
+        {LEVELS.map((l) => (
+          <li class:list={{ here: l.n === level, below: l.n < 2 }}>
+            <strong>{l.n} · {l.name}</strong>
+            <span>{l.what}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .kicker {
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 0.85rem;
+    color: var(--accent);
+    margin: 0 0 0.5rem;
+  }
+  table th { width: 8rem; }
+  .fine { font-size: 0.85rem; margin: 1rem 0 0; }
+  .levels { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+  .levels li {
+    display: grid;
+    gap: 0.1rem;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .levels li span { color: var(--muted); font-size: 0.9rem; }
+  .levels li.below { opacity: 0.55; }
+  .levels li.here { border-color: var(--accent); }
+  code { background: var(--surface-2); padding: 0.1rem 0.35rem; border-radius: 4px; }
+</style>

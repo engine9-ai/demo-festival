@@ -36,6 +36,15 @@ export const ROLE_REGISTRY: Record<
   },
 };
 
+/**
+ * Pages any signed-in person may open once their sign-in reaches an Identity
+ * Level, whatever their role. `/level-2` needs Level 2: an email address the
+ * person has proven they receive (the emailed code), or anything stronger.
+ */
+export const LEVEL_GATES: { prefix: string; requiredAuth: { minLevel: number } }[] = [
+  { prefix: "/level-2", requiredAuth: { minLevel: 2 } },
+];
+
 /** Admin-first order for sessionPrimaryRole. */
 export const ROLE_ORDER = [ADMIN_SEGMENT_ID, VIP_SEGMENT_ID] as const;
 

@@ -1,7 +1,8 @@
 import { defineMiddleware } from "astro:middleware";
 import { requireRole } from "@engine9/core/auth/gate";
-import { isPageRequest } from "@engine9/core/auth/signIn";
-import { delegateAuth } from "./lib/engine9";
+import { meetsRequiredAuth } from "@engine9/core/auth/policy";
+import { changeSignInUrl, isPageRequest } from "@engine9/core/auth/signIn";
+import { delegateAuth, LEVEL_GATES } from "./lib/engine9";
 import { getSession, type Session } from "./lib/session";
 import { logDbPath } from "./lib/db";
 
@@ -28,6 +29,11 @@ const GATES: { prefix: string; roles: string[] }[] = [
  *     with nothing on screen. `/denied` renders the gate's own result: who
  *     they are signed in as, and its `changeUrl` to pick another address or
  *     account (`prompt=select&reason=access_denied`).
+ *
+ * `LEVEL_GATES` (`/level-2`) need no role, only an Identity Level. The
+ * sign-in check is still `requireRole` (with no role); the Level is core's
+ * `meetsRequiredAuth` on the verified session, the same test `requireRole`
+ * applies to a role's `requiredAuth`.
  */
 export const onRequest = defineMiddleware(async (context, next) => {
   if (!dbPathLogged) {
@@ -40,7 +46,38 @@ export const onRequest = defineMiddleware(async (context, next) => {
   }
 
   const path = context.url.pathname;
-  const gate = GATES.find((g) => path === g.prefix || path.startsWith(`${g.prefix}/`));
+  const under = (prefix: string) => path === prefix || path.startsWith(`${prefix}/`);
+
+  const levelGate = LEVEL_GATES.find((g) => under(g.prefix));
+  if (levelGate) {
+    // No role: requireRole only checks the sign-in (signed out gets core's answer).
+    const result = await requireRole({ auth: delegateAuth(), request: context.request });
+    if (!result.ok) return result.response;
+    const session = result.session as Session;
+    const credential = { level: session.level, twoFactor: Boolean(session.auth?.twoFactor) };
+    context.locals.session = session;
+    if (meetsRequiredAuth(levelGate.requiredAuth, credential)) return next();
+    // Signed in below the Level: a 403, never a redirect to sign in (it would loop).
+    if (!isPageRequest(context.request)) {
+      return Response.json(
+        { error: "not allowed", reason: "auth_not_met", requiredLevel: levelGate.requiredAuth.minLevel, level: session.level ?? null },
+        { status: 403, headers: { "cache-control": "no-store" } },
+      );
+    }
+    const here = `${context.url.pathname}${context.url.search}`;
+    context.locals.denied = {
+      reason: "auth_not_met",
+      role: `Level ${levelGate.requiredAuth.minLevel}`,
+      email: session.email ?? null,
+      changeUrl: changeSignInUrl(here, { reason: "access_denied" }),
+      requiredLevel: levelGate.requiredAuth.minLevel,
+      level: typeof session.level === "number" ? session.level : null,
+    };
+    const page = await next("/denied");
+    return new Response(page.body, { status: 403, headers: page.headers });
+  }
+
+  const gate = GATES.find((g) => under(g.prefix));
   if (!gate) {
     context.locals.session = await getSession(context.request);
     return next();

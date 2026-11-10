@@ -43,7 +43,8 @@ export function inferredLevel(session: Session): number | undefined {
   const auth = session.auth;
   if (!auth) return undefined;
   if (auth.twoFactor) return 4;
-  if (auth.signInProvider === "google.com") return 3;
+  // Trusted providers: Google, and Microsoft since @engine9/id 1.16.
+  if (auth.signInProvider === "google.com" || auth.signInProvider === "microsoft.com") return 3;
   if (session.email) return 2;
   return 1;
 }

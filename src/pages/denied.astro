@@ -15,6 +15,8 @@ const denied = Astro.locals.denied;
 if (!denied) return Astro.redirect("/");
 const session = Astro.locals.session;
 const strongerSignIn = denied.reason === "auth_not_met";
+/** A Level gate (`/level-2`), not a role: say which Level, and offer that sign-in. */
+const levelGate = typeof denied.requiredLevel === "number";
 // Demo only: roles here are self-serve, standing in for an operator granting one.
 const offerRolePicker = !strongerSignIn && holdsNoRole(session);
 ---
@@ -28,12 +30,15 @@ const offerRolePicker = !strongerSignIn && holdsNoRole(session);
           ? <>You are signed in as <strong>{denied.email}</strong>.</>
           : <>You are signed in, but without a confirmed email address.</>}
         {" "}
-        {strongerSignIn
-          ? <>This page needs a stronger sign-in for {denied.role} than this one, such as Google instead of an emailed link.</>
+        {levelGate
+          ? <>This page needs a Level {denied.requiredLevel} sign-in: an email address you have proven you receive. This sign-in is {typeof denied.level === "number" ? <>Level {denied.level}</> : "below that"}.</>
+          : strongerSignIn
+          ? <>This page needs a stronger sign-in for {denied.role} than this one, such as Google instead of an emailed code.</>
           : <>That sign-in does not have {denied.role} access.</>}
       </p>
       <div class="actions">
-        <a class="btn btn-primary" href={denied.changeUrl}>Use a different email or account</a>
+        {levelGate && <a class="btn btn-primary" href="/login#level-2">Sign in with an emailed code</a>}
+        <a class={levelGate ? "btn btn-ghost" : "btn btn-primary"} href={denied.changeUrl}>Use a different email or account</a>
         {offerRolePicker && <a class="btn btn-ghost" href="/choose-role">Choose a role</a>}
       </div>
       <p class="muted fine">
