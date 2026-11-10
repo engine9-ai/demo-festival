@@ -81,8 +81,8 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
           <p>
             The <strong>Login</strong> button in the header is
             <code>loginWidget()</code> from <code>@engine9/id/widget</code>.
-            One dialog on this page logs in with the providers Delegate offers
-            (Google, and Microsoft or Facebook where enabled), switches the email
+            One dialog on this page logs in with Google or Facebook
+            (<code>LOGIN_PROVIDERS</code> in <code>src/lib/brand.ts</code>), switches the email
             address this site sees, picks VIP or Admin, and logs out. It runs
             with <code>core: {"{"} session: "cookie" {"}"}</code>, the
             recommended setting: core issues the nonce
@@ -93,8 +93,9 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
           </p>
           <p class="outcome">
             <strong>You’ll see:</strong> delegate’s sign-in if you are not
-            signed in there, in this site’s colors with a button for each
-            provider, such as <strong>Continue with Google</strong>
+            signed in there, in this site’s colors, with
+            <strong>Continue with Google</strong> and
+            <strong>Continue with Facebook</strong>
             (<code>brand</code> in <code>src/lib/brand.ts</code>), then its
             share page the first time. The share
             page lists your email addresses so you can pick one. After that,
@@ -121,9 +122,7 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
             core's <code>/api/auth/start</code>, a plain link. Core sends
             Delegate this site's <code>config.signIn</code>
             (<code>min_level=1</code>, <code>display_name</code> and
-            <code>email</code>, <code>brand_google=skip</code> so a signed-out
-            visitor goes straight to the provider when Delegate offers only
-            one), and
+            <code>email</code>, <code>login_providers=google,facebook</code>), and
             <code>/api/auth/callback</code> sets the same
             <code>e9_session</code> cookie. <strong>Log in (popup)</strong>
             calls <code>requestIdentity()</code> and
@@ -364,7 +363,7 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
 
 <script>
   import { createEngine9Id } from "@engine9/id";
-  import { POPUP_SIGN_IN_BRAND } from "../lib/brand";
+  import { LOGIN_PROVIDERS, SIGN_IN_BRAND } from "../lib/brand";
 
   const wrap = document.querySelector(".login-wrap");
   const delegateUrl =
@@ -374,9 +373,9 @@ whoamiBridgeUrl.searchParams.set("origin", Astro.url.origin);
   const core = wrap instanceof HTMLElement ? JSON.parse(wrap.dataset.core || "null") : null;
   const TAG = "[festival login]";
   // The recommended client: core issues the nonce and sets the e9_session cookie.
-  const id = createEngine9Id({ delegateUrl, storage: "session", debug: true, brand: POPUP_SIGN_IN_BRAND, core });
+  const id = createEngine9Id({ delegateUrl, storage: "session", debug: true, brand: SIGN_IN_BRAND, loginProviders: LOGIN_PROVIDERS, core });
   // Debugging only: a Level 0 token, no sign-in with core.
-  const probe = createEngine9Id({ delegateUrl, storage: "memory", debug: true, brand: POPUP_SIGN_IN_BRAND });
+  const probe = createEngine9Id({ delegateUrl, storage: "memory", debug: true, brand: SIGN_IN_BRAND, loginProviders: LOGIN_PROVIDERS });
   const identityResult = document.getElementById("identity-result");
 
   function show(label: string, data: unknown) {

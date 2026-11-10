@@ -2,7 +2,7 @@
 import { env } from "cloudflare:workers";
 import { showAdmin, showVip, widgetUser } from "../lib/session";
 import { BROWSER_CORE, LOGIN_FIELDS } from "../lib/engine9";
-import { POPUP_SIGN_IN_BRAND } from "../lib/brand";
+import { LOGIN_PROVIDERS, SIGN_IN_BRAND } from "../lib/brand";
 import { ADMIN_SEGMENT_ID, ROLE_REGISTRY, VIP_SEGMENT_ID } from "../lib/roles";
 
 interface Props {
@@ -17,7 +17,9 @@ const isAdminRoute = path.startsWith("/admin");
 const widget = {
   delegateUrl: env.DELEGATE_URL || "https://delegate.network",
   fields: LOGIN_FIELDS,
-  brand: POPUP_SIGN_IN_BRAND,
+  brand: SIGN_IN_BRAND,
+  // Google and Facebook; the widget's button reads "Log in with Google or Facebook".
+  loginProviders: LOGIN_PROVIDERS,
   // Sign in through core with its cookie session (see BROWSER_CORE).
   core: BROWSER_CORE,
   // Segment UUID in core's session -> the widget's role key.
@@ -132,6 +134,7 @@ const navLinks = [
     const id = createEngine9Id({
       delegateUrl: config.delegateUrl,
       brand: config.brand,
+      loginProviders: config.loginProviders,
       storage: "session",
       core,
     });

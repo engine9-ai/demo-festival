@@ -67,16 +67,17 @@ Level 0 (`level_unavailable` when `min_level` is above 0).
 
 ## Log in vs. Switch email
 
-The widget's **Log in with Google**, and the fallback **Log in** and **Log
-in (popup)** on `/login`, are the same request. All go straight through when
+The widget's **Log in with Google or Facebook**, and the fallback **Log
+in** and **Log in (popup)** on `/login`, are the same request. All go straight through when
 the Grant already covers the request.
 
-All three send the festival's colors (`src/lib/brand.ts`), so delegate's
-sign-in page matches the site. Popups send `google: "brand"`: delegate
-must keep its Google button there (a browser blocks a window opened without
-a click), so it reads **Continue with Google** in festival purple. The
-redirect **Log in** sends `google: "skip"`, so a signed-out visitor goes
-from this site's button straight to Google.
+All three send the festival's colors and `login_providers=google,facebook`
+(`SIGN_IN_BRAND` and `LOGIN_PROVIDERS` in `src/lib/brand.ts`), so
+delegate's sign-in page matches the site and offers **Continue with
+Google** (in festival purple, `google: "brand"`) and **Continue with
+Facebook**. With two providers delegate always shows that screen, so the
+visitor picks; a Facebook sign-in is Level 3, but its email is never marked
+verified.
 
 **Switch email** in the widget (and **Change your Delegate information** on
 `/login`, `changeSignInUrl()` from `@engine9/core/auth/signIn`) sends the

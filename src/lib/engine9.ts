@@ -7,7 +7,7 @@ import { SqlApiKeyStore } from "@engine9/core/auth";
 import { createDelegateAuth } from "@engine9/core/auth/delegate";
 import { BatchLogger } from "@engine9/core/logging";
 import { createApi } from "@engine9/core/api";
-import { REDIRECT_SIGN_IN_BRAND } from "./brand";
+import { LOGIN_PROVIDERS, SIGN_IN_BRAND } from "./brand";
 
 export {
   ADMIN_SEGMENT_ID,
@@ -163,7 +163,8 @@ export function createEngine9Api() {
       signIn: {
         minLevel: 1,
         fields: LOGIN_FIELDS,
-        brand: REDIRECT_SIGN_IN_BRAND,
+        loginProviders: LOGIN_PROVIDERS,
+        brand: SIGN_IN_BRAND,
       },
       pluginId: FESTIVAL_PLUGIN_ID,
       defaultRemoteInputId: "festival-website",
