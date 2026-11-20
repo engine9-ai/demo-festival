@@ -10,7 +10,7 @@ import {
 
 test("demo roles declare Identity Level gates", () => {
   assert.equal(ROLE_REGISTRY[ADMIN_SEGMENT_ID].requiredAuth.minLevel, 3);
-  assert.equal(ROLE_REGISTRY[VIP_SEGMENT_ID].requiredAuth.minLevel, 1);
+  assert.equal(ROLE_REGISTRY[VIP_SEGMENT_ID].requiredAuth.minLevel, 2);
   assert.deepEqual(ROLE_REGISTRY[ADMIN_SEGMENT_ID].scopes, ["admin"]);
   assert.deepEqual(ROLE_REGISTRY[VIP_SEGMENT_ID].scopes, ["data:read"]);
   assert.ok(DEMO_PUBLIC_API_KEY.startsWith("e9publickey_"));

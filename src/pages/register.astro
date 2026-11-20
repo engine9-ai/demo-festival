@@ -3,7 +3,6 @@ import Layout from "../layouts/Layout.astro";
 
 const ok = Astro.url.searchParams.get("ok");
 const error = Astro.url.searchParams.get("error");
-const personId = Astro.url.searchParams.get("person_id");
 ---
 
 <Layout title="Register">
@@ -21,7 +20,7 @@ const personId = Astro.url.searchParams.get("person_id");
 
       {ok && (
         <p class="notice ok">
-          You're registered{personId && <> — your <code>person_id</code> is <strong>{personId}</strong></>}.
+          You're registered.
         </p>
       )}
 

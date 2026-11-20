@@ -100,7 +100,7 @@ Tokens, person resolution, roles-as-segments, and sessions work, see
 
 | Role | Segment | Scopes | `requiredAuth` |
 | --- | --- | --- | --- |
-| VIP | `5f2ab45c-…` | `data:read` | `minLevel: 1` |
+| VIP | `5f2ab45c-…` | `data:read` | `minLevel: 2` |
 | Admin | `4f4ac886-…` | `admin` | `minLevel: 3` |
 
 Identity flow: [`docs/identity-flow.md`](docs/identity-flow.md).

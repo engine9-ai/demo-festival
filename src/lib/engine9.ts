@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import PersonWorker from "@engine9/core/PersonWorker";
 import pluginEntries, { packageVersions } from "@engine9/core/plugins/site";
 import { createPluginRegistry } from "@engine9/core/pluginRegistry";
-import { DEFAULT_CORE_SCHEMAS } from "@engine9/core/stackMetadata";
+import { REQUIRED_PLUGINS } from "@engine9/core/requiredPlugins";
 import { SqlApiKeyStore } from "@engine9/core/auth";
 import { createDelegateAuth } from "@engine9/core/auth/delegate";
 import { BatchLogger } from "@engine9/core/logging";
@@ -53,21 +53,35 @@ export function createPersonWorker() {
   return new PersonWorker({ accountId: "festival-demo", d1: env.DB, plugins });
 }
 
-let standardPlugins: Promise<void> | undefined;
+/**
+ * The plugins this site installs on top of the required ones. Signup and
+ * login write names and email, so the site needs the contact edition
+ * (person_name, person_email, person_phone, person_address, and the rest).
+ *
+ * Sign-in also needs `@engine9/schemas/login` (package.json
+ * `engine9.install`). It is not installed here on purpose: `e9core upgrade`
+ * installs it and copies the existing admins' addresses into it in one
+ * step. Installing it from a request would skip that copy, and admins would
+ * sign in with no roles until the next upgrade.
+ */
+const CONTACT_EDITION = "@engine9/schemas/editions/contact";
+const SITE_PLUGINS: string[] = [...REQUIRED_PLUGINS, CONTACT_EDITION];
+
+let sitePlugins: Promise<void> | undefined;
 
 /**
- * One query: are the standard person schema plugins already installed? A
- * site's database is installed once (migration 0003, then `e9core upgrade`
- * after a release), so on almost every cold Worker the answer is yes and the
- * login skips `installDefaultPlugins`, which diffs every table of every
- * plugin (dozens of D1 round trips). A missing `plugin` table, a missing row,
- * or any error means "not sure": install.
+ * One query: are the required plugins and the contact edition already
+ * installed? A site's database is installed once (migration 0003, then
+ * `e9core upgrade` after a release), so on almost every cold Worker the
+ * answer is yes and the login skips the install, which diffs every table of
+ * every plugin (dozens of D1 round trips). A missing `plugin` table, a
+ * missing row, or any error means "not sure": install.
  */
-async function standardPluginsInstalled(
+async function sitePluginsInstalled(
   worker: ReturnType<typeof createPersonWorker>,
 ): Promise<boolean> {
   try {
-    const paths: string[] = DEFAULT_CORE_SCHEMAS;
+    const paths = SITE_PLUGINS;
     const { data } = await worker.query({
       sql: `select path from plugin where path in (${paths.map(() => "?").join(",")})`,
       values: paths,
@@ -80,25 +94,28 @@ async function standardPluginsInstalled(
 }
 
 /**
- * Make sure the published person schema plugins (plugin rows + inbound
- * snapshots) are installed, once per isolate. The seeded
+ * Make sure the required plugins and the contact edition (plugin rows +
+ * inbound snapshots) are installed, once per isolate. The seeded
  * `@demo/festival-website` row is attribution for writes; it is not an
- * inbound people plugin. `POST /people` and login need the standard schema
- * plugins installed. Already installed (the normal case) costs one query;
- * schema changes from a new release are applied by `e9core upgrade`, not by
- * a visitor's login.
+ * inbound people plugin. `POST /people` and login need these plugins
+ * installed. Already installed (the normal case) costs one query; schema
+ * changes from a new release are applied by `e9core upgrade`, not by a
+ * visitor's login.
  */
-export function ensureStandardPlugins(): Promise<void> {
-  if (standardPlugins) return standardPlugins;
+export function ensureSitePlugins(): Promise<void> {
+  if (sitePlugins) return sitePlugins;
   const worker = createPersonWorker();
-  const pending = standardPluginsInstalled(worker)
-    .then((installed) => (installed ? undefined : worker.installDefaultPlugins()))
-    .then(() => undefined)
+  const pending = sitePluginsInstalled(worker)
+    .then(async (installed) => {
+      if (installed) return;
+      await worker.installRequiredPlugins();
+      await worker.install({ path: CONTACT_EDITION });
+    })
     .catch((err: unknown) => {
-      standardPlugins = undefined;
+      sitePlugins = undefined;
       throw err;
     });
-  standardPlugins = pending;
+  sitePlugins = pending;
   return pending;
 }
 
@@ -161,7 +178,7 @@ export function createEngine9Api() {
       // GET /api/auth/start and /api/auth/callback: the redirect sign-in.
       // Everything Delegate is asked for comes from here, never the URL.
       signIn: {
-        minLevel: 1,
+        minLevel: 2, // core signs nobody in below Level 2
         fields: LOGIN_FIELDS,
         loginProviders: LOGIN_PROVIDERS,
         brand: SIGN_IN_BRAND,

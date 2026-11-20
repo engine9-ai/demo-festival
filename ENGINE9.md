@@ -65,7 +65,7 @@ A deploy changes code only. After a new `@engine9/core` or
 database (see `@engine9/core` `docs/upgrading.md`):
 
 ```bash
-npm install @engine9/core@^1.10.2 @engine9/schemas@^1.10.1
+npm install @engine9/core@^1.22.2 @engine9/schemas@^1.15.0 @engine9/id@^1.17.0
 npm run deploy
 npx e9core upgrade --url https://festival.engine9.ai --dry-run
 npx e9core upgrade --url https://festival.engine9.ai
@@ -74,6 +74,16 @@ npx e9core upgrade --url https://festival.engine9.ai
 `npm run deploy` is `e9core build-plugins`, then `astro build`, then
 `wrangler deploy`. The new schema plugins are in the Worker because
 `build-plugins` reads the copy this project installed.
+
+Sign-in needs the `@engine9/schemas/login` plugin, which no edition
+includes; `package.json` lists it in `engine9.install` after the contact
+edition. `e9core upgrade` installs it on a database that has roles and
+copies the admins' addresses into it. For local development, upgrade the
+local D1 while `npm run preview` is running:
+
+```bash
+npx e9core upgrade --url http://localhost:8787
+```
 
 ### Stage 2 — Install the engine9 schema into the existing database
 
@@ -140,8 +150,11 @@ Two small files:
   `SqlApiKeyStore` (keys in the `api_key` table), `BatchLogger`, and `createApi` with this site's plugin
   id, upsertable tables, and named reads (`vip-performances` gated by the VIP
   segment, `lineup` public). The first people write or login calls
-  `installDefaultPlugins()` so the published person schema plugins (the inbound
-  pipeline) are installed. Core runs only plugins compiled into the build.
+  `installRequiredPlugins()` and then `install({ path: "@engine9/schemas/editions/contact" })`
+  when either is missing, so the required plugins and the contact edition
+  (names, email, phone, address: the inbound pipeline) are installed. The
+  login plugin is left to `e9core upgrade` (Stage 1). Core
+  runs only plugins compiled into the build.
 - `src/pages/api/[...path].ts` — Astro catch-all route that hands the raw
   `Request` to `api.handleFetch`. On a plain Worker (no Astro) you'd call
   `handleFetch` from `fetch()` directly — see
@@ -189,7 +202,7 @@ site](../core/docs/sign-in.md)). Every sign-in route is core's, and the
 session is core's HttpOnly `e9_session` cookie. This site only wires
 configuration and two pages:
 
-- `src/lib/roles.ts` — VIP (`minLevel: 1`) and Admin (`minLevel: 3`)
+- `src/lib/roles.ts` — VIP (`minLevel: 2`) and Admin (`minLevel: 3`)
 - `src/lib/engine9.ts` — `delegateAuth()` (delegate URL, session secret,
   plugin id, role registry), `createApi` with `config.signIn` (what Delegate
   is asked for: Level 1, `display_name` and `email`, the festival brand),
@@ -234,9 +247,9 @@ into the widget as `user`. The widget's hooks:
 The button reads **Logging in…** (with a spinner) from the click, and again
 from the first paint of the return from Delegate until `onLogin` answers, so
 the visitor never sees a plain Login button while a login is in flight.
-`ensureStandardPlugins()` keeps the return quick: it asks the database one
-question (are the standard schema plugins already installed?) and runs
-`installDefaultPlugins()` only when the answer is no. A site is installed
+`ensureSitePlugins()` keeps the return quick: it asks the database one
+question (are the required plugins and the contact edition already
+installed?) and installs them only when the answer is no. A site is installed
 once and upgraded with `e9core upgrade`; a visitor's login never migrates it.
 
 In-page log in links carry `data-open-login`; the layout opens the widget's

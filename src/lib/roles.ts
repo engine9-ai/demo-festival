@@ -32,7 +32,7 @@ export const ROLE_REGISTRY: Record<
   [VIP_SEGMENT_ID]: {
     name: "VIP",
     scopes: ["data:read"],
-    requiredAuth: { minLevel: 1 },
+    requiredAuth: { minLevel: 2 },
   },
 };
 

@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { createEngine9Api, DEMO_PUBLIC_API_KEY, ensureStandardPlugins } from "../../lib/engine9";
+import { createEngine9Api, DEMO_PUBLIC_API_KEY, ensureSitePlugins } from "../../lib/engine9";
 
 const EMAIL_TYPES = new Set(["Personal", "Work", "Other"]);
 
@@ -20,7 +20,7 @@ export const POST: APIRoute = async ({ request, redirect }) => {
   if (!email || !email.includes("@")) return redirect("/register?error=email", 303);
   if (!email_type) return redirect("/register?error=email_type", 303);
 
-  await ensureStandardPlugins();
+  await ensureSitePlugins();
   const api = createEngine9Api();
   const apiRequest = new Request("http://localhost/api/people", {
     method: "POST",
@@ -34,17 +34,14 @@ export const POST: APIRoute = async ({ request, redirect }) => {
   });
 
   const response = await api.handleFetch(apiRequest, { basePath: "/api" });
-  const body = (await response.json()) as {
-    personIds?: number[];
-    error?: string;
-  };
+  // A public key gets no person ids back (@engine9/core 1.22.0): they would
+  // tell a browser who is already on file.
+  const body = (await response.json()) as { error?: string };
 
   if (!response.ok) {
     const message = encodeURIComponent(body.error || `status_${response.status}`);
     return redirect(`/register?error=${message}`, 303);
   }
 
-  const personId = body.personIds?.[0];
-  const suffix = personId ? `&person_id=${personId}` : "";
-  return redirect(`/register?ok=1${suffix}`, 303);
+  return redirect("/register?ok=1", 303);
 };

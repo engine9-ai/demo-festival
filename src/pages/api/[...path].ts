@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { createEngine9Api, ensureStandardPlugins } from "../../lib/engine9";
+import { createEngine9Api, ensureSitePlugins } from "../../lib/engine9";
 
 /**
  * Engine9 client API, served under /api by the same Worker as the site:
@@ -10,7 +10,7 @@ import { createEngine9Api, ensureStandardPlugins } from "../../lib/engine9";
  *   GET  /api/read/vip-performances?person_id=...
  */
 const handler: APIRoute = async ({ request, locals }) => {
-  await ensureStandardPlugins();
+  await ensureSitePlugins();
   const api = createEngine9Api();
   return api.handleFetch(request, { basePath: "/api", ctx: locals.cfContext });
 };

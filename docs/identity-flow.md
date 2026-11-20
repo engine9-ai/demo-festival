@@ -143,7 +143,7 @@ sequenceDiagram
   participant D as delegate
   B->>C: GET /api/auth/start?returnTo=/signed-in
   C-->>B: Set-Cookie e9_login (state + nonce), 302 to Delegate
-  B->>D: GET /identity/authorize?domain&min_level=1&fields=display_name,email&state&nonce
+  B->>D: GET /identity/authorize?domain&min_level=2&fields=display_name,email&state&nonce
   D-->>B: share page, or silent token
   D-->>B: 302 /api/auth/callback?delegate_token=JWT&state
   B->>C: GET /api/auth/callback

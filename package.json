@@ -20,13 +20,17 @@
   },
   "dependencies": {
     "@astrojs/cloudflare": "^14.1.1",
-    "@engine9/core": "^1.20.0",
-    "@engine9/id": "^1.16.0",
-    "@engine9/schemas": "^1.13.0",
+    "@engine9/core": "^1.22.2",
+    "@engine9/id": "^1.17.0",
+    "@engine9/schemas": "^1.15.0",
     "astro": "^7.0.6",
     "wrangler": "^4.151.0"
   },
   "engine9": {
+    "install": [
+      "@engine9/schemas/editions/contact",
+      "@engine9/schemas/login"
+    ],
     "pluginPackages": [
       "@engine9/schemas"
     ]
