@@ -11,7 +11,6 @@ import { LOGIN_PROVIDERS, SIGN_IN_BRAND } from "./brand";
 
 export {
   ADMIN_SEGMENT_ID,
-  DEMO_API_KEY,
   DEMO_PUBLIC_API_KEY,
   FESTIVAL_PLUGIN_ID,
   LEVEL_GATES,
@@ -174,6 +173,8 @@ export function createEngine9Api() {
     keyStore,
     logger,
     delegateAuth: delegateAuth(),
+    // The Worker's env, so GET /api/admin/status can check which secrets are set.
+    environment: env as unknown as Record<string, unknown>,
     config: {
       // GET /api/auth/start and /api/auth/callback: the redirect sign-in.
       // Everything Delegate is asked for comes from here, never the URL.

@@ -388,8 +388,9 @@ DROP TABLE demo_person;
 INSERT INTO plugin (id, path, name, table_prefix)
 VALUES ('86dfc4a8-318b-51e6-9f25-d9648f963609', '@demo/festival-website', 'Festival Website', '');
 
--- Demo API key: e9key_0ca7302713d70f5d130cf52cbf9167f0ea1a45ef (sha-256 stored).
--- Rotate for any non-demo deployment: npx e9core create-api-key
+-- Demo API key (sha-256 stored; the key itself is not published).
+-- It has admin scope. Deactivate it on any deployed site and make your own:
+-- npx e9core create-api-key (see ENGINE9.md)
 INSERT INTO api_key (id, name, key_hash, scopes, active)
 VALUES (
   'f31c2c8f-0296-4dd8-9b3c-2b0e4f4dbe1a',

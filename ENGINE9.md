@@ -121,9 +121,9 @@ Also in `0003_engine9.sql`:
 - a `plugin` row for this website (`86dfc4a8-318b-51e6-9f25-d9648f963609`,
   from `getPluginUUID('engine9.demo', 'festival-website')`) — everything
   written through the API is attributed to it;
-- an `api_key` row. The demo key is
-  `e9key_0ca7302713d70f5d130cf52cbf9167f0ea1a45ef` (only its SHA-256 is
-  stored). **Rotate this for any non-demo deployment**:
+- an `api_key` row named `festival-demo-website`, with admin scope (only its
+  SHA-256 is stored; the key itself is not published). **Deactivate it on any
+  deployed site and make your own**:
 
   ```bash
   # prints the key once (stderr) and the INSERT statement (stdout)
@@ -168,7 +168,11 @@ npm run preview             # build + wrangler dev
 ```
 
 ```bash
-KEY=e9key_0ca7302713d70f5d130cf52cbf9167f0ea1a45ef
+# make a local key: it prints the key once (stderr) and the INSERT (stdout)
+npx e9core create-api-key --print-sql --name local \
+  --scopes people:write,tables:write,data:read > local-key.sql
+npx wrangler d1 execute festival-db --local --file local-key.sql
+KEY=<the key it printed>
 curl localhost:8787/api/ok
 # create a person through the transform pipeline
 curl -X POST localhost:8787/api/people -H "Authorization: Bearer $KEY" \
