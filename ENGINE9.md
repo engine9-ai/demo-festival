@@ -123,13 +123,13 @@ Also in `0003_engine9.sql`:
   written through the API is attributed to it;
 - an `api_key` row named `festival-demo-website`, with admin scope (only its
   SHA-256 is stored; the key itself is not published). **Deactivate it on any
-  deployed site and make your own**:
+  deployed site** and give the site its own keys:
 
   ```bash
-  # prints the key once (stderr) and the INSERT statement (stdout)
-  npx e9core create-api-key --print-sql --name my-website \
-    --scopes people:write,tables:write,data:read > new-key.sql
-  npx wrangler d1 execute festival-db --remote --file new-key.sql
+  # production's own admin key, public key, SESSION_SECRET, and
+  # AGENT_CREDENTIALS_SECRET: hashes into festival-db (the DB binding),
+  # values as Worker secrets and in .env.production (gitignored)
+  npx e9core setup-keys --remote
   # deactivate the demo key
   npx wrangler d1 execute festival-db --remote \
     --command "UPDATE api_key SET active = 0 WHERE name = 'festival-demo-website'"
@@ -164,15 +164,12 @@ Two small files:
 
 ```bash
 npm run db:reset            # apply all migrations to local D1
+npx e9core setup-keys       # .env keys and secrets; hashes into local festival-db
 npm run preview             # build + wrangler dev
 ```
 
 ```bash
-# make a local key: it prints the key once (stderr) and the INSERT (stdout)
-npx e9core create-api-key --print-sql --name local \
-  --scopes people:write,tables:write,data:read > local-key.sql
-npx wrangler d1 execute festival-db --local --file local-key.sql
-KEY=<the key it printed>
+KEY=$(grep '^E9_ADMIN_API_KEY=' .env | cut -d= -f2)
 curl localhost:8787/api/ok
 # create a person through the transform pipeline
 curl -X POST localhost:8787/api/people -H "Authorization: Bearer $KEY" \
@@ -191,10 +188,11 @@ curl "localhost:8787/api/read/vip-performances?person_id=901" -H "Authorization:
 
 ```bash
 npm run db:migrate:remote   # apply migrations to the production D1 database
+npx e9core setup-keys --remote   # production keys and secrets; safe to re-run
 npm run deploy              # e9core build-plugins && astro build && wrangler deploy
 ```
 
-For production, also rotate the API key (Stage 4) and, if long-term
+For production, also deactivate the demo API key (Stage 4) and, if long-term
 modification logs are wanted, add an R2 bucket binding and switch the logger
 in `src/lib/engine9.ts` to the R2 sink.
 

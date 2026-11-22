@@ -105,9 +105,12 @@ Tokens, person resolution, roles-as-segments, and sessions work, see
 
 Identity flow: [`docs/identity-flow.md`](docs/identity-flow.md).
 
-Local development: copy `.env.example` to `.env`. `SESSION_SECRET` is required:
-64 hex characters from `openssl rand -hex 32` (core refuses anything else).
-Point `DELEGATE_URL` at `https://delegate.network`. The redirect callback is
+Local development: `npm run db:migrate`, then `npx e9core setup-keys`. It
+writes `.env` (the admin and public keys, `SESSION_SECRET`, and
+`AGENT_CREDENTIALS_SECRET`) and puts the key hashes in the local
+`festival-db`. Production: `npx e9core setup-keys --remote`. Never type a
+secret yourself; core refuses one that is not 64 random hex characters.
+`DELEGATE_URL` is `https://delegate.network`. The redirect callback is
 core's `/api/auth/callback` (`response_mode=query`).
 
 ## How it's put together
